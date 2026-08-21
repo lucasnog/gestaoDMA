@@ -1,0 +1,587 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  FileText,
+  Calendar,
+  Building2,
+  TrendingUp,
+  ArrowRight,
+  Clock,
+  Download,
+  BarChart3,
+  Activity
+} from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
+import { formatDate } from '../utils/formatters';
+import * as apiService from '../services/api.service';
+import Card from '../components/ui/Card';
+import Badge from '../components/ui/Badge';
+import Skeleton from '../components/ui/Skeleton';
+import Pagination from '../components/ui/Pagination';
+import ExpandableText from '../components/ui/ExpandableText';
+import ExportDialog from '../components/ui/ExportDialog';
+import ContractDetail from '../components/contract/ContractDetail';
+import { useDashboardContext } from '../layouts/DashboardLayout';
+
+const TIPO_CORES = {
+  'Início': { bg: 'from-emerald-500 to-emerald-600', shadow: 'shadow-emerald-500/20', icon: TrendingUp },
+  'Término': { bg: 'from-red-500 to-red-600', shadow: 'shadow-red-500/20', icon: Clock },
+  'Reinício': { bg: 'from-blue-500 to-blue-600', shadow: 'shadow-blue-500/20', icon: Activity },
+  'Suspensão': { bg: 'from-amber-500 to-amber-600', shadow: 'shadow-amber-500/20', icon: Clock },
+  'Alteração': { bg: 'from-purple-500 to-purple-600', shadow: 'shadow-purple-500/20', icon: FileText },
+};
+
+const OrdensServico = () => {
+  const { selectedBlocos, selectedSegmentos, search, contratos } = useDashboardContext();
+  const [allOs, setAllOs] = useState([]);
+  const [stats, setStats] = useState(null);
+  const [chartData, setChartData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [chartPeriodo, setChartPeriodo] = useState('mes'); // 'dia' | 'mes' | 'trimestre' | 'semestre' | 'ano'
+  const [selectedPeriodo, setSelectedPeriodo] = useState(null); // período clicado no gráfico
+  const [selectedContratoId, setSelectedContratoId] = useState(null);
+  const [chartPage, setChartPage] = useState(0);
+  const CHART_PER_PAGE = 12;
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [page, setPage] = useState(1);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: null });
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  const handleSort = (key) => {
+    setSortConfig(prev => {
+      if (prev.key !== key) return { key, direction: 'asc' };
+      if (prev.direction === 'asc') return { key, direction: 'desc' };
+      return { key: null, direction: null };
+    });
+  };
+
+  const getOsId = (os) => `${os.CONTRATO}-${os.DATA_OS}`;
+
+  function toggleSelect(id) {
+    setSelectedIds(function(prev) {
+      if (prev.includes(id)) return prev.filter(function(x) { return x !== id; });
+      return [].concat(prev, [id]);
+    });
+  }
+
+  function toggleSelectAll() {
+    if (selectedIds.length === sortedOs.length) { setSelectedIds([]); }
+    else { setSelectedIds(sortedOs.map(function(os) { return getOsId(os); }).filter(Boolean)); }
+  }
+
+  const exportColumns = useMemo(() => [
+    { key: 'BLOCO_NORM', label: 'Bloco' },
+    { key: 'CONTRATO', label: 'Contrato' },
+    { key: 'LOTE', label: 'Lote' },
+    { key: 'EMPRESA', label: 'Empresa' },
+    { key: 'SEGMENTO', label: 'Segmento' },
+    { key: 'TIPO_DE_OS', label: 'Tipo' },
+    { key: 'DATA_OS', label: 'Data' },
+    { key: 'OBJETO_EXIBICAO', label: 'Objeto' },
+    { key: 'os_2021', label: 'OS 2021' },
+    { key: 'os_2022', label: 'OS 2022' },
+    { key: 'os_2023', label: 'OS 2023' },
+    { key: 'os_2024', label: 'OS 2024' },
+    { key: 'os_2025', label: 'OS 2025' },
+    { key: 'os_2026', label: 'OS 2026' },
+  ], []);
+
+  // ─── Helpers: período ──────────────────────────────────────
+  const getWeekNumber = (dateStr) => {
+    if (!dateStr) return null;
+    const d = new Date(dateStr + 'T12:00:00');
+    if (isNaN(d.getTime())) return null;
+    const year = d.getFullYear();
+    const oneJan = new Date(year, 0, 1);
+    const weekNum = Math.ceil((((d - oneJan) / 86400000) + oneJan.getDay() + 1) / 7);
+    return `${year}-${String(weekNum).padStart(2, '0')}`;
+  };
+
+  const getPeriodoKey = (dataOs, periodo) => {
+    if (!dataOs) return null;
+    if (periodo === 'dia') return dataOs;
+    if (periodo === 'mes') return dataOs.substring(0, 7);
+    if (periodo === 'trimestre') {
+      const m = parseInt(dataOs.substring(5, 7));
+      const q = Math.ceil(m / 3);
+      return dataOs.substring(0, 4) + '-Q' + q;
+    }
+    if (periodo === 'semestre') {
+      const m = parseInt(dataOs.substring(5, 7));
+      const s = m <= 6 ? 1 : 2;
+      return dataOs.substring(0, 4) + '-S' + s;
+    }
+    if (periodo === 'ano') return dataOs.substring(0, 4);
+    return null;
+  };
+
+  const getPeriodoLabel = (periodoKey, tipo) => {
+    if (!periodoKey) return '';
+    if (tipo === 'ano') {
+      return periodoKey;
+    }
+    if (tipo === 'mes') {
+      const [y, m] = periodoKey.split('-');
+      const meses = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+      return `${meses[parseInt(m)-1] || m} ${y}`;
+    }
+    if (tipo === 'trimestre') {
+      const parts = periodoKey.split('-Q');
+      if (parts.length < 2) return periodoKey;
+      return parts[1] + 'º Trim ' + parts[0];
+    }
+    if (tipo === 'semestre') {
+      const parts = periodoKey.split('-S');
+      if (parts.length < 2) return periodoKey;
+      return parts[1] + 'º Sem ' + parts[0];
+    }
+    if (tipo === 'dia') {
+      const [y, m, d] = periodoKey.split('-');
+      const meses = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+      return `${d} ${meses[parseInt(m)-1]} ${y}`;
+    }
+    return periodoKey;
+  };
+
+  const blocoKey = [...selectedBlocos].sort().join(',');
+  const segmentoKey = [...selectedSegmentos].sort().join(',');
+
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!contratos || contratos.length === 0) { setLoading(false); return; }
+      setLoading(true);
+      try {
+        const blocoParam = blocoKey || undefined;
+        const segmentoParam = segmentoKey || undefined;
+        const searchParam = search || undefined;
+
+        const osResult = await apiService.getOrdensServico({
+          bloco: blocoParam,
+          segmento: segmentoParam,
+          search: searchParam,
+          limit: 99999,
+        });
+        const contratoSet = new Set((contratos || []).map(function(c) { return c.cd_contrato; }).filter(Boolean));
+        var osData = (osResult.data || []).filter(function(o) { return contratoSet.has(o.CONTRATO); });
+
+        setAllOs(osData);
+
+        setStats({
+          total: osData.length,
+          contratos_com_os: new Set(osData.map(o => o.CONTRATO).filter(Boolean)).size,
+          primeira_os: osData.reduce((min, r) => !min || r.DATA_OS < min ? r.DATA_OS : min, null),
+          ultima_os: osData.reduce((max, r) => !max || r.DATA_OS > max ? r.DATA_OS : max, null),
+        });
+      } catch (error) {
+        console.error('[OS] Erro:', error);
+        setAllOs([]);
+        setStats(null);
+        setChartData([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, [blocoKey, segmentoKey, search, contratos]);
+
+  // Chart data computado client-side (independente do fetch)
+  useEffect(() => {
+    const source = selectedIds.length > 0 ? allOs.filter(os => selectedIds.includes(getOsId(os))) : allOs;
+    const chartMap = {};
+    source.forEach(os => {
+      const key = getPeriodoKey(os.DATA_OS, chartPeriodo);
+      if (!key) return;
+      if (!chartMap[key]) chartMap[key] = { periodo: key, quantidade: 0, contratos: new Set() };
+      chartMap[key].quantidade++;
+      chartMap[key].contratos.add(os.CONTRATO);
+    });
+    setChartData(
+      Object.values(chartMap)
+        .map(g => ({ ...g, contratos: g.contratos.size }))
+        .sort((a, b) => a.periodo.localeCompare(b.periodo))
+    );
+  }, [allOs, chartPeriodo, selectedIds]);
+
+  // Paginação do gráfico
+  useEffect(() => { setChartPage(0); }, [chartPeriodo]);
+  const newestFirst = [...chartData].reverse();
+  const totalChartPages = Math.max(1, Math.ceil(newestFirst.length / CHART_PER_PAGE));
+  const safeChartPage = Math.min(chartPage, totalChartPages - 1);
+  const pagedChartData = newestFirst.slice(safeChartPage * CHART_PER_PAGE, (safeChartPage + 1) * CHART_PER_PAGE).reverse();
+
+  // Filtro por período (clicou na barra do gráfico)
+  const filteredOs = useMemo(() => {
+    let result = allOs;
+    if (selectedPeriodo) {
+      result = result.filter(os => {
+        const key = getPeriodoKey(os.DATA_OS, chartPeriodo);
+        return key === selectedPeriodo;
+      });
+    }
+    if (selectedIds.length > 0) result = result.filter(os => selectedIds.includes(getOsId(os)));
+    return result;
+  }, [allOs, selectedPeriodo, chartPeriodo, selectedIds]);
+
+  // Ordenação
+  const sortedOs = useMemo(() => {
+    if (!sortConfig.key || !sortConfig.direction) return filteredOs;
+    return [...filteredOs].sort((a, b) => {
+      let aVal = a[sortConfig.key];
+      let bVal = b[sortConfig.key];
+      if (aVal == null) return 1;
+      if (bVal == null) return -1;
+      const aNum = parseFloat(aVal);
+      const bNum = parseFloat(bVal);
+      if (!isNaN(aNum) && !isNaN(bNum)) {
+        return sortConfig.direction === 'asc' ? aNum - bNum : bNum - aNum;
+      }
+      aVal = String(aVal).toLowerCase();
+      bVal = String(bVal).toLowerCase();
+      return sortConfig.direction === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+    });
+  }, [filteredOs, sortConfig]);
+
+  // Paginação
+  const totalPages = Math.max(1, Math.ceil(sortedOs.length / itemsPerPage));
+  const safePage = Math.min(page, totalPages);
+  const pagedOs = sortedOs.slice((safePage - 1) * itemsPerPage, safePage * itemsPerPage);
+
+  useEffect(() => { setPage(1); setSelectedPeriodo(null); }, [blocoKey, segmentoKey, search, chartPeriodo]);
+  useEffect(() => { setPage(1); }, [itemsPerPage]);
+
+  // KPI Cards
+  const kpiCards = [
+    {
+      label: selectedPeriodo ? 'OS no período' : 'Total de OS',
+      value: selectedPeriodo ? filteredOs.length : (stats?.total || 0),
+      icon: FileText,
+      color: 'from-emerald-600 to-emerald-700',
+      shadow: 'shadow-emerald-500/20',
+      sub: selectedPeriodo
+        ? `${new Set(filteredOs.map(o => o.CONTRATO)).size} contratos`
+        : `${stats?.contratos_com_os || 0} contratos com OS`,
+    },
+    {
+      label: 'Primeira OS',
+      value: stats?.primeira_os ? formatDate(stats.primeira_os) : '—',
+      icon: Calendar,
+      color: 'from-blue-500 to-blue-600',
+      shadow: 'shadow-blue-500/20',
+      sub: 'Data da primeira OS',
+    },
+    {
+      label: 'Última OS',
+      value: stats?.ultima_os ? formatDate(stats.ultima_os) : '—',
+      icon: Calendar,
+      color: 'from-teal-500 to-teal-600',
+      shadow: 'shadow-teal-500/20',
+      sub: 'Data da última OS',
+    },
+  ];
+
+  // Agrupa OS por contrato para o card de contratos com OS
+  const osPorContrato = useMemo(() => {
+    const map = {};
+    filteredOs.forEach(os => {
+      const key = os.CONTRATO;
+      if (!map[key]) map[key] = { contrato: key, quantidade: 0, ultima_data: null, lotes: new Set() };
+      map[key].quantidade++;
+      map[key].lotes.add(os.BLOCO_NORM || '—');
+      if (!map[key].ultima_data || os.DATA_OS > map[key].ultima_data) {
+        map[key].ultima_data = os.DATA_OS;
+      }
+    });
+    return Object.values(map)
+      .map(m => ({ ...m, lotes: [...m.lotes].join(', ') }))
+      .sort((a, b) => b.quantidade - a.quantidade);
+  }, [filteredOs]);
+
+  const totalOsValue = selectedPeriodo ? filteredOs.length : (stats?.total || 0);
+  // Mostra o badge "X OS registradas" de forma dinâmica
+  const badgeLabel = selectedPeriodo
+    ? `${filteredOs.length} OS neste período`
+    : `${totalOsValue} OS registradas`;
+
+  // Cores para o gráfico
+  const CHART_COLORS = ['#0D6B2E', '#1B8C3E', '#34A853', '#4CAF50', '#81C784', '#A5D6A7', '#C8E6C9'];
+
+  if (loading && allOs.length === 0) {
+    return (
+      <div className="space-y-6 p-6">
+        <Skeleton className="h-8 w-48" />
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {[1,2,3].map(i => <Skeleton key={i} className="h-24" />)}
+        </div>
+        <Skeleton className="h-64" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6 sm:space-y-8">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Ordens de Serviço</h1>
+          <p className="text-xs sm:text-sm text-slate-400 mt-0.5 sm:mt-1">Histórico completo de OS</p>
+        </div>
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap shrink-0">
+          <Badge variant="info" size="sm">
+            {badgeLabel}
+          </Badge>
+          <button
+            onClick={() => setExportOpen(true)}
+            disabled={loading || allOs.length === 0}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <Download size={14} strokeWidth={2} />
+            Exportar
+          </button>
+        </div>
+      </div>
+
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+        {kpiCards.map((kpi, idx) => (
+          <Card key={idx} className="p-4 sm:p-5 border border-emerald-100/50 shadow-sm hover:shadow-card transition-all duration-300 group">
+            <div className="flex items-start justify-between mb-3">
+              <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br ${kpi.color} flex items-center justify-center shadow-sm ${kpi.shadow} group-hover:scale-110 transition-transform duration-300`}>
+                <kpi.icon size={16} className="text-white" strokeWidth={2} />
+              </div>
+            </div>
+            <p className="text-[9px] sm:text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">{kpi.label}</p>
+            <p className="text-sm sm:text-lg lg:text-xl font-bold text-slate-900 tracking-tight break-words">{kpi.value}</p>
+            <p className="text-[8px] sm:text-[9px] text-slate-300 mt-1">{kpi.sub}</p>
+          </Card>
+        ))}
+      </div>
+
+      {/* Chart Section */}
+      <Card className="p-4 sm:p-6 border border-emerald-100/50 shadow-sm">
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            <BarChart3 size={16} className="text-emerald-600" strokeWidth={2} />
+            <h3 className="text-xs sm:text-sm font-bold text-slate-900">OS por Período</h3>
+          </div>
+          <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5">
+            {[
+              { key: 'dia', label: 'Dia' },
+              { key: 'mes', label: 'Mês' },
+              { key: 'trimestre', label: 'Trimestre' },
+              { key: 'semestre', label: 'Semestre' },
+              { key: 'ano', label: 'Ano' },
+            ].map(opt => (
+              <button
+                key={opt.key}
+                onClick={() => setChartPeriodo(opt.key)}
+                className={`px-2.5 py-1 rounded-md text-[10px] sm:text-[11px] font-semibold transition-all ${
+                  chartPeriodo === opt.key
+                    ? 'bg-white text-emerald-700 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="h-48 sm:h-64 chart-no-focus">
+          {pagedChartData.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={pagedChartData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}
+                onClick={(data) => {
+                  if (!data?.activeLabel) return;
+                  const periodo = data.activeLabel;
+                  setSelectedPeriodo(prev => prev === periodo ? null : periodo);
+                  setPage(1);
+                }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis
+                  dataKey="periodo"
+                  tick={{ fontSize: 10, fill: '#94a3b8' }}
+                  tickLine={false}
+                  axisLine={{ stroke: '#e2e8f0' }}
+                  tickFormatter={(v) => getPeriodoLabel(v, chartPeriodo)}
+                />
+                <YAxis
+                  tick={{ fontSize: 10, fill: '#94a3b8' }}
+                  tickLine={false}
+                  axisLine={false}
+                  allowDecimals={false}
+                />
+                <Tooltip
+                  contentStyle={{
+                    background: '#fff',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '8px',
+                    fontSize: '12px',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
+                  }}
+                  formatter={(value, name) => [
+                    value,
+                    name === 'quantidade' ? 'Quantidade' : 'Contratos'
+                  ]}
+                  labelFormatter={(label) => getPeriodoLabel(label, chartPeriodo)}
+                />
+                <Bar
+                  dataKey="quantidade"
+                  radius={[4, 4, 0, 0]}
+                  maxBarSize={40}
+                  style={{ cursor: 'pointer', outline: 'none' }}
+                >
+                  {pagedChartData.map((entry, idx) => (
+                    <Cell
+                      key={idx}
+                      fill={entry.periodo === selectedPeriodo ? '#059669' : '#D1D5DB'}
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-full text-slate-400 text-xs">
+              Nenhum dado disponível para o período selecionado
+            </div>
+          )}
+        </div>
+        {totalChartPages > 1 && (
+          <div className="flex items-center justify-center gap-3 mt-4 pt-3 border-t border-emerald-100/30">
+            <button onClick={() => setChartPage(safeChartPage + 1)} disabled={safeChartPage >= totalChartPages - 1}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-500 hover:bg-emerald-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+              ← Anterior
+            </button>
+            <span className="text-[11px] font-medium text-slate-400">{safeChartPage + 1} de {totalChartPages}</span>
+            <button onClick={() => setChartPage(safeChartPage - 1)} disabled={safeChartPage <= 0}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-500 hover:bg-emerald-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+              Próximo →
+            </button>
+          </div>
+        )}
+      </Card>
+
+      {/* Table */}
+      <Card className="border border-emerald-100/50 shadow-sm overflow-hidden">
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-emerald-100/30 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <FileText size={14} className="text-emerald-600" strokeWidth={2} />
+            <h3 className="text-[11px] sm:text-sm font-bold text-slate-900">Todas as OS</h3>
+            <span className="text-[10px] sm:text-[11px] text-slate-400">({filteredOs.length} registros)</span>
+          </div>
+          {selectedPeriodo && (
+            <button
+              onClick={() => { setSelectedPeriodo(null); setPage(1); }}
+              className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-100/80 text-emerald-700 border border-emerald-200 text-[10px] font-semibold hover:bg-emerald-200 transition-colors"
+              title="Remover filtro do período"
+            >
+              {getPeriodoLabel(selectedPeriodo, chartPeriodo)} <span className="text-[9px] ml-0.5">✕</span>
+            </button>
+          )}
+        </div>
+
+        {/* ─── Desktop: tabela ──────────────────────── */}
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-emerald-100/30 bg-emerald-50/30">
+                <th className="px-3 py-3 w-8">
+                  <input type="checkbox" checked={selectedIds.length > 0 && selectedIds.length === sortedOs.length} onChange={toggleSelectAll} className="w-3.5 h-3.5 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer" />
+                </th>
+                <th className="px-3 sm:px-6 py-3 text-left text-[9px] sm:text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                  Contrato
+                </th>
+                <th onClick={() => handleSort('LOTE')} className="px-3 sm:px-6 py-3 text-left text-[9px] sm:text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none">
+                  Lote{sortConfig.key === 'LOTE' ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
+                </th>
+                <th onClick={() => handleSort('TIPO_DE_OS')} className="px-3 sm:px-6 py-3 text-left text-[9px] sm:text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none">
+                  Tipo{sortConfig.key === "TIPO_DE_OS" ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
+                </th>
+                <th onClick={() => handleSort('DATA_OS')} className="px-3 sm:px-6 py-3 text-left text-[9px] sm:text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none">
+                  Data{sortConfig.key === "DATA_OS" ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
+                </th>
+                <th className="px-3 sm:px-6 py-3 text-left text-[9px] sm:text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Objeto</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pagedOs.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-3 sm:px-6 py-8 text-center text-slate-400 text-xs">
+                    Nenhuma Ordem de Serviço encontrada
+                  </td>
+                </tr>
+              ) : (
+                pagedOs.map((os, idx) => {
+                  const tipoCor = TIPO_CORES[os.TIPO_DE_OS] || { bg: 'from-slate-500 to-slate-600', shadow: 'shadow-slate-500/20', icon: FileText };
+                  const TipoIcon = tipoCor.icon;
+                  return (
+                    <tr
+                      key={`${os.CONTRATO}-${os.DATA_OS}-${idx}`}
+                      onClick={() => setSelectedContratoId(os.CONTRATO)}
+                      className="group cursor-pointer transition-all duration-200 hover:bg-emerald-50/40"
+                    >
+                      <td className="px-3 py-3 w-8" onClick={function(e) { e.stopPropagation(); }}>
+                        <input type="checkbox" checked={selectedIds.includes(getOsId(os))} onChange={function() { toggleSelect(getOsId(os)); }} className="w-3.5 h-3.5 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer" />
+                      </td>
+                      <td className="px-3 sm:px-6 py-3 sm:py-4">
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex items-center gap-1 px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-md bg-emerald-50 border border-emerald-100/50 text-[9px] sm:text-[11px] font-semibold text-emerald-700">
+                            {os.BLOCO_NORM || '—'}
+                          </span>
+                          <div className="min-w-0">
+                            <span className="text-[11px] sm:text-sm font-semibold text-slate-900 truncate block">{os.CONTRATO}</span>
+                            <span className="text-[9px] sm:text-[10px] text-slate-400 truncate block">{os.SEGMENTO || '—'}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-3 sm:px-6 py-3 sm:py-4">
+                        <span className="text-[11px] sm:text-sm font-semibold text-slate-900">{os.LOTE || '—'}</span>
+                      </td>
+                      <td className="px-3 sm:px-6 py-3 sm:py-4">
+                        <span className={`inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md bg-gradient-to-br ${tipoCor.bg} text-white text-[9px] sm:text-[10px] font-semibold shadow-xs`}>
+                          <TipoIcon size={9} strokeWidth={2.5} />
+                          {os.TIPO_DE_OS || '—'}
+                        </span>
+                      </td>
+                      <td className="px-3 sm:px-6 py-3 sm:py-4">
+                        <span className="text-[11px] sm:text-sm font-medium text-slate-700">
+                          {os.DATA_OS ? formatDate(os.DATA_OS) : '—'}
+                        </span>
+                      </td>
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 min-w-[160px] sm:min-w-0">
+                        <ExpandableText text={os.OBJETO_EXIBICAO} maxLines={2} className="text-[10px] sm:text-[11px] text-slate-600 leading-snug" />
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+          <Pagination page={safePage} totalPages={totalPages} onChange={setPage} itemsPerPage={itemsPerPage} onItemsPerPageChange={setItemsPerPage} />
+      </Card>
+
+      {/* Export Dialog */}
+      <ExportDialog
+        open={exportOpen}
+        onClose={() => setExportOpen(false)}
+        data={filteredOs}
+        columns={exportColumns}
+        formatters={{
+          DATA_OS: formatDate,
+        }}
+        filename="ordens-servico"
+        title="Exportar Ordens de Serviço"
+      />
+
+      {/* Contract Detail Sidebar */}
+      {selectedContratoId && (
+        <ContractDetail
+          contratoId={selectedContratoId}
+          onClose={() => setSelectedContratoId(null)}
+        />
+      )}
+    </div>
+  );
+};
+
+export default OrdensServico;

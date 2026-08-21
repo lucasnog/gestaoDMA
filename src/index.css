@@ -1,0 +1,163 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap');
+
+.municipio-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
+@theme {
+  /* GEMOC Analytics — paleta em tons de azul (substitui o verde original) */
+  --color-emerald-50: #eff6ff;
+  --color-emerald-100: #dbeafe;
+  --color-emerald-200: #bfdbfe;
+  --color-emerald-300: #93c5fd;
+  --color-emerald-400: #60a5fa;
+  --color-emerald-500: #3b82f6;
+  --color-emerald-600: #2563eb;
+  --color-emerald-700: #1d4ed8;
+  --color-emerald-800: #1e40af;
+  --color-emerald-900: #1e3a8a;
+  --color-emerald-950: #172554;
+
+  --color-teal-50: #f0f9ff;
+  --color-teal-100: #e0f2fe;
+  --color-teal-200: #bae6fd;
+  --color-teal-300: #7dd3fc;
+  --color-teal-400: #38bdf8;
+  --color-teal-500: #0ea5e9;
+  --color-teal-600: #0284c7;
+  --color-teal-700: #0369a1;
+  --color-teal-800: #075985;
+  --color-teal-900: #0c4a6e;
+  --color-teal-950: #082f49;
+
+  --color-lime-50: #ecfeff;
+  --color-lime-100: #cffafe;
+  --color-lime-200: #a5f3fc;
+  --color-lime-300: #67e8f9;
+  --color-lime-400: #22d3ee;
+  --color-lime-500: #06b6d4;
+  --color-lime-600: #0891b2;
+  --color-lime-700: #0e7490;
+  --color-lime-800: #155e75;
+  --color-lime-900: #164e63;
+  --color-lime-950: #083344;
+
+  --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
+
+  --shadow-premium: 0 1px 3px 0 rgba(0,0,0,0.04), 0 1px 2px -1px rgba(0,0,0,0.06);
+  --shadow-card: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -2px rgba(0,0,0,0.05);
+  --shadow-elevated: 0 10px 15px -3px rgba(0,0,0,0.08), 0 4px 6px -4px rgba(0,0,0,0.04);
+  --shadow-sidebar: 4px 0 20px -5px rgba(0,0,0,0.15);
+
+  --animate-slide-in: slide-in 0.2s ease-out;
+  --animate-loading-bar: loading-bar 1.5s ease-in-out infinite;
+
+  @keyframes slide-in {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(0); }
+  }
+
+  @keyframes loading-bar {
+    0% { transform: translateX(-100%); width: 30%; }
+    50% { width: 60%; }
+    100% { transform: translateX(400%); width: 30%; }
+  }
+}
+
+@layer base {
+  *, *::before, *::after {
+    @apply border-emerald-100/60;
+  }
+
+  body {
+    @apply bg-emerald-50 text-slate-800 antialiased;
+    font-family: "Outfit", ui-sans-serif, system-ui, sans-serif;
+    margin: 0;
+    min-width: 320px;
+    min-height: 100vh;
+  }
+
+  ::selection {
+    @apply bg-emerald-600/20 text-emerald-700;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-emerald-200/60 rounded-full hover:bg-emerald-300/80 transition-colors;
+  }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .glass {
+    background: rgba(255, 255, 255, 0.75);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .shadow-premium {
+    box-shadow: var(--shadow-premium);
+  }
+
+  .shadow-card {
+    box-shadow: var(--shadow-card);
+  }
+
+  .shadow-elevated {
+    box-shadow: var(--shadow-elevated);
+  }
+
+  .shadow-sidebar {
+    box-shadow: var(--shadow-sidebar);
+  }
+
+  table {
+    font-size: 0.8125rem;
+    border-collapse: collapse;
+    width: 100%;
+  }
+
+  table td,
+  table th {
+    padding: 4px 8px;
+  }
+
+  /* Remove focus outline de gráficos Recharts */
+  .chart-no-focus svg,
+  .chart-no-focus svg * {
+    outline: none !important;
+  }
+
+  .chart-no-focus svg:focus,
+  .chart-no-focus svg *:focus {
+    outline: none !important;
+    box-shadow: none !important;
+  }
+
+  .recharts-bar-rectangle:focus {
+    outline: none !important;
+  }
+
+}

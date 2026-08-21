@@ -1,0 +1,7 @@
+name = "gemoc-analytics"
+compatibility_date = "2026-05-19"
+
+pages_build_output_dir = "dist"
+
+[env.production]
+vars = { VITE_API_URL = "https://api.gemoc-analytics.workers.dev/api" }

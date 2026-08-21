@@ -1,0 +1,11 @@
+# Security headers
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Cross-Origin-Opener-Policy: unsafe-none
+  Cross-Origin-Embedder-Policy: unsafe-none
+
+# Assets with long cache
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
