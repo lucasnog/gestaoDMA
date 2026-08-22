@@ -46,11 +46,11 @@ const About = () => {
         {/* Header */}
         <div className="flex items-center gap-4 mb-6 pb-6 border-b border-slate-100">
           <div className="w-12 h-12 rounded-xl bg-emerald-600 flex items-center justify-center shadow-sm">
-            <span className="text-white font-black text-xl tracking-tight">G</span>
+            <span className="text-white font-black text-xl tracking-tight">D</span>
           </div>
           <div>
-            <h1 className="text-base font-bold text-slate-900 leading-tight">GEMOC Analytics</h1>
-            <p className="text-xs text-slate-400 mt-0.5">Monitoramento de contratos · GEMOC</p>
+            <h1 className="text-base font-bold text-slate-900 leading-tight">Gestão DMA Analytics</h1>
+            <p className="text-xs text-slate-400 mt-0.5">Monitoramento de contratos · Gestão DMA</p>
           </div>
         </div>
 
@@ -59,7 +59,7 @@ const About = () => {
 
           <InfoRow icon={User} iconBg="bg-emerald-600" label="Criado e gerenciado por">
             <p className="text-sm font-semibold text-slate-900">Lucas Nogueira Lopes</p>
-            <p className="text-xs font-medium text-emerald-600 mt-0.5">GEMOC</p>
+            <p className="text-xs font-medium text-emerald-600 mt-0.5">Gestão DMA</p>
           </InfoRow>
 
           <InfoRow icon={Phone} iconBg="bg-blue-500" label="Telefone">

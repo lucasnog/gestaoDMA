@@ -54,3 +54,29 @@ npm run dev        # Vite, porta 5173 (proxy /api → backend)
 - Sem testes automatizados, sem lint/typecheck configurado (igual ao GEMOC).
 - O que for alterado aqui **não** deve ser sincronizado de volta automaticamente para o `gemoc-frontend` — projetos são independentes.
 - Se precisar de contexto sobre o backend (rotas, banco, deploy), consultar `C:\projetos\Projeto GOINFRA\GEMOC-ANALYTICS1\AGENTS.md`.
+
+## Ferramentas locais (`tools/gestãoDMA Tools`)
+
+App Electron no mesmo padrão do `Tools/electron` do GEMOC — gerenciador de scripts do contrato 61/2023.
+
+| Item | Valor |
+|---|---|
+| Pasta | `tools/gestãoDMA Tools/` |
+| Iniciar | duplo clique em `iniciar.bat` (instala deps na 1ª vez) ou `cd "tools/gestãoDMA Tools" && npm start` |
+| Padrão | `main.js` (Electron) + `preload.js` + `renderer/` + `scripts/` — módulos definidos em `main.js` |
+
+### Scripts disponíveis
+
+| Script | Função |
+|---|---|
+| `scripts/converter-md-lgpd.mjs` | Converte texto (`.txt`) → `.md` removendo automaticamente dados pessoais protegidos pela LGPD |
+
+### Script converter-md-lgpd.mjs
+
+```bash
+node converter-md-lgpd.mjs <arquivo.txt|pasta> [--saida <pasta|arquivo.md>] [--dry]
+```
+
+- Remove por regex: CPF, CNPJ, RG, CNS, PIS/PASEP, CNH, título de eleitor, e-mail, telefone, CEP, placa de veículo, agência/conta, cartão de crédito.
+- Mascara linhas inteiras com campos sensíveis (nome, endereço, nascimento, banco, participantes etc.) substituindo por `[dado removido — LGPD]`.
+- `--dry` só identifica (não escreve arquivos) e gera relatório de ocorrências por tipo.

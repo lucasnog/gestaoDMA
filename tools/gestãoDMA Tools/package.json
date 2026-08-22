@@ -1,0 +1,13 @@
+{
+  "name": "gestao-dma-tools",
+  "version": "1.0.0",
+  "description": "Gestão DMA Tools — Gerenciamento de scripts do contrato 61/2023 (Gerência DMA)",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0"
+  }
+}

@@ -1,14 +1,6 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/auth.store';
-
-const fotosGlob = import.meta.glob('/src/assets/fotos/*', {
-  eager: true,
-  query: '?url',
-  import: 'default',
-});
-
-const fotos = Object.values(fotosGlob);
 
 const Login = () => {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -32,31 +24,21 @@ const Login = () => {
     if (isAuthenticated) navigate('/', { replace: true });
   }, [isAuthenticated, navigate]);
 
-  const fotosEmbaralhadas = useMemo(() => [...fotos].sort(() => Math.random() - 0.5), []);
-
   return (
     <div className="relative h-screen overflow-hidden bg-gradient-to-br from-emerald-900 via-emerald-700 to-slate-900">
-      <div className="absolute inset-0 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 auto-rows-fr gap-2 p-2 pointer-events-none">
-        {fotosEmbaralhadas.map((url, i) => (
-          <div key={i} className="overflow-hidden rounded-xl shadow-lg shadow-black/20 border-2 border-white/60 bg-white/10" style={{ transform: `rotate(${((i % 5) - 2) * 3}deg)` }}>
-            <img src={url} alt="" className="w-full h-full object-contain" />
-          </div>
-        ))}
-      </div>
-
       <div className="relative h-full w-full px-4 flex flex-col items-center justify-center">
         <div className="bg-white/80 backdrop-blur-sm rounded-xl sm:rounded-2xl shadow-2xl border border-emerald-100/50 overflow-hidden w-full max-w-md">
           {/* Header */}
           <div className="px-5 sm:px-8 pt-2 sm:pt-3 pb-3 sm:pb-4 text-center">
             <img
               src="/Logo de gestão financeira..png"
-              alt="Logo GEMOC"
+              alt="Logo Gestão DMA"
               className="mx-auto w-48 sm:w-64 h-auto object-contain"
               style={{
                 filter: 'drop-shadow(0 0 1.5px #ffffff) drop-shadow(0 0 1.5px #ffffff) drop-shadow(0 0 1.5px #ffffff)',
               }}
             />
-            <h1 className="text-lg sm:text-xl font-bold text-slate-900 -mt-2 sm:-mt-3">GEMOC Analytics</h1>
+            <h1 className="text-lg sm:text-xl font-bold text-slate-900 -mt-2 sm:-mt-3">Gestão DMA Analytics</h1>
             <p className="text-xs sm:text-sm text-slate-400 mt-1">
               Sistema de Monitoramento de Contratos
             </p>
@@ -127,7 +109,7 @@ const Login = () => {
           {/* Footer */}
           <div className="px-5 sm:px-8 py-3 sm:py-4 bg-emerald-50/30 border-t border-emerald-100/30 text-center">
             <p className="text-[10px] text-slate-400">
-               &copy; {new Date().getFullYear()} GEMOC Analytics
+               &copy; {new Date().getFullYear()} Gestão DMA Analytics
             </p>
           </div>
         </div>

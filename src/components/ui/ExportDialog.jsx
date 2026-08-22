@@ -76,7 +76,7 @@ const ExportDialog = ({ open, onClose, data, columns, formatters = {}, filename 
 
     const ExcelJS = await import('exceljs');
     const wb = new ExcelJS.Workbook();
-    wb.creator = 'GEMOC Analytics';
+    wb.creator = 'Gestão DMA Analytics';
     wb.created = new Date();
     const ws = wb.addWorksheet('Dados');
 

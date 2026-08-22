@@ -721,7 +721,7 @@ const Portfolio = () => {
                         )}
                     </div>
                     <p className="text-xs sm:text-sm text-slate-400">
-                        Portfolio completo de obras — DMA / GEMOC
+                        Portfolio completo de obras — DMA
                     </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">

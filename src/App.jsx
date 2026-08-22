@@ -9,14 +9,7 @@ import Relatorios from './pages/Relatorios';
 import Aditivos from './pages/Aditivos';
 import Apostilas from './pages/Apostilas';
 import OrdensServico from './pages/OrdensServico';
-import EPS from './pages/EPS';
-import Portfolio from './pages/Portfolio';
-import Fichas from './pages/Fichas';
 import Documentos from './pages/Documentos';
-import Municipios from './pages/Municipios';
-import SeiProcessos from './pages/SeiProcessos';
-import ContratacoesAnaLuisa from './pages/ContratacoesAnaLuisa';
-import FundoProtege from './pages/FundoProtege';
 import Gestores from './pages/Gestores';
 import About from './pages/About';
 import Login from './pages/Login';
@@ -48,13 +41,6 @@ const router = createBrowserRouter([
       { path: "aditivos", element: <Aditivos /> },
       { path: "apostilas", element: <Apostilas /> },
       { path: "os", element: <OrdensServico /> },
-      { path: "eps", element: <EPS /> },
-      { path: "portfolio", element: <Portfolio /> },
-      { path: "fichas", element: <Fichas /> },
-      { path: "municipios", element: <Municipios /> },
-      { path: "sei", element: <SeiProcessos /> },
-      { path: "contratacoes", element: <ContratacoesAnaLuisa /> },
-      { path: "fundo-protege", element: <FundoProtege /> },
       { path: "gestores", element: <Gestores /> },
       { path: "admin", element: <Admin /> },
       { path: "sobre", element: <About /> },

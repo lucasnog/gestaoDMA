@@ -1,8 +1,17 @@
 ﻿/* ============================================================
-   GEMOC Analytics ÔÇö Config & Constants
+   Gestão DMA — Config & Constants
    ============================================================ */
 
-// ÔöÇÔöÇÔöÇ API ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+// ─── CONTRATO ALVO ─────────────────────────────────────────────
+// Todo o sistema trabalha com um único contrato: 61/2023 (Gestão DMA / gerenciadora)
+export const CONTRATO_ALVO = {
+  cd: '61/2023',
+  id: 'bl1-61/2023',
+  label: 'Contrato 61/2023',
+  empresa: 'DYNATEST ENGENHARIA LTDA',
+};
+
+// ─── API ───────────────────────────────────────────────────────
 export const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? '/api' : 'https://api.gemoc-analytics.workers.dev/api');
 export const PDF_URL = import.meta.env.VITE_PDF_URL || 'http://localhost:8000';
 
@@ -83,15 +92,8 @@ export const MODULOS_DISPONIVEIS = [
   { path: '/aditivos', label: 'Aditivos', abrev: 'Adit' },
   { path: '/apostilas', label: 'Apostilas', abrev: 'Apost' },
   { path: '/os', label: 'Ordens de Servico', abrev: 'OS' },
-  { path: '/portfolio', label: 'Portfolio', abrev: 'Portf' },
-  { path: '/fichas', label: 'Fichas', abrev: 'Fich' },
-  { path: '/municipios', label: 'Municipios', abrev: 'Munic' },
   { path: '/empresas', label: 'Empresas', abrev: 'Emp' },
   { path: '/gestores', label: 'Gestores', abrev: 'Gest' },
-  { path: '/eps', label: 'EPS', abrev: 'EPS' },
-  { path: '/sei', label: 'Processos SEI', abrev: 'SEI' },
-  { path: '/contratacoes', label: 'Contratacoes', abrev: 'ContrT' },
-  { path: '/fundo-protege', label: 'Fundo Protege', abrev: 'FProt' },
 ];
 
 export const PAGINACAO = {

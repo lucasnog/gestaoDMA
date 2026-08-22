@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gestão DMA Tools</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <header>
+    <h1>🛠 Gestão DMA Tools</h1>
+    <span class="subtitle">Ferramentas do contrato 61/2023 — Gerência DMA</span>
+  </header>
+
+  <main>
+    <!-- Sidebar com módulos -->
+    <aside id="sidebar">
+      <div id="module-list"></div>
+    </aside>
+
+    <!-- Painel principal -->
+    <section id="main-panel">
+      <!-- Cabeçalho do módulo ativo -->
+      <div id="module-header">
+        <h2 id="module-title">📄 Texto → Markdown (LGPD)</h2>
+        <p id="module-desc" class="dim">Selecione um script para executar</p>
+      </div>
+
+      <!-- Inputs do script ativo -->
+      <div id="script-inputs" class="hidden">
+        <div class="input-group hidden" id="input-folder-group">
+          <label id="input-folder-label">📂 Pasta de origem</label>
+          <div class="field-row">
+            <input type="text" id="input-folder" placeholder="Selecione a pasta..." readonly>
+            <button class="btn-browse" id="btn-browse-folder">📂</button>
+          </div>
+        </div>
+        <div class="input-group hidden" id="input-file-group">
+          <label id="input-file-label">📄 Arquivo de entrada</label>
+          <div class="field-row">
+            <input type="text" id="input-file" placeholder="Selecione o arquivo .txt..." readonly>
+            <button class="btn-browse" id="btn-browse-file">📂</button>
+          </div>
+        </div>
+        <div class="input-group hidden" id="input-saida-group">
+          <label id="input-saida-label">💾 Pasta de saída (.md)</label>
+          <div class="field-row">
+            <input type="text" id="input-saida" placeholder="Selecione onde salvar..." readonly>
+            <button class="btn-browse" id="btn-browse-saida">📂</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Lista de scripts do módulo -->
+      <div id="script-list"></div>
+
+      <!-- Console -->
+      <div id="console-section">
+        <div id="console-header">
+          <h3>Console</h3>
+          <div class="console-actions">
+            <button id="btn-clear" class="small">Limpar</button>
+            <button id="btn-copy" class="small">Copiar</button>
+          </div>
+        </div>
+        <pre id="console"><span class="dim">Selecione um script ao lado para executar.</span></pre>
+      </div>
+    </section>
+  </main>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

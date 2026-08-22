@@ -106,7 +106,7 @@ const PendingApproval = () => {
           </div>
 
           <div className="px-8 py-4 bg-emerald-50/30 border-t border-emerald-100/30 text-center">
-            <p className="text-[10px] text-slate-400"> &copy; 2026 GEMOC Analytics</p>
+            <p className="text-[10px] text-slate-400"> &copy; 2026 Gestão DMA Analytics</p>
           </div>
         </div>
       </div>

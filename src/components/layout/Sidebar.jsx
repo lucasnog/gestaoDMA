@@ -10,16 +10,9 @@ import {
   X,
   Shield,
   Info,
-  PieChart,
-  Briefcase,
   Clock,
-  FileSpreadsheet,
   BadgeCheck,
-  MapPin,
   UserCheck,
-  Inbox,
-  ClipboardList,
-  ShieldAlert,
 } from "lucide-react";
 import { useAuthStore } from "../../stores/auth.store";
 
@@ -34,13 +27,6 @@ const Sidebar = ({ contractsAlertCount = 0, isOpen, onClose }) => {
       label: "Dashboard",
       icon: LayoutDashboard,
       description: "Visão executiva",
-    },
-    {
-      path: "/contratos",
-      label: "Contratos",
-      icon: FileText,
-      description: "Carteira de ativos",
-      badge: contractsAlertCount,
     },
     {
       path: "/medicoes",
@@ -67,24 +53,6 @@ const Sidebar = ({ contractsAlertCount = 0, isOpen, onClose }) => {
       description: "Histórico de OS",
     },
     {
-      path: "/portfolio",
-      label: "Portfolio",
-      icon: Briefcase,
-      description: "Portfolio completo de obras",
-    },
-    {
-      path: "/fichas",
-      label: "Fichas",
-      icon: FileSpreadsheet,
-      description: "Fichas resumo dos contratos",
-    },
-    {
-      path: "/municipios",
-      label: "Municípios",
-      icon: MapPin,
-      description: "Distribuição por localidade",
-    },
-    {
       path: "/empresas",
       label: "Empresas",
       icon: Building2,
@@ -95,30 +63,6 @@ const Sidebar = ({ contractsAlertCount = 0, isOpen, onClose }) => {
       label: "Gestores",
       icon: UserCheck,
       description: "Gestores e fiscais dos contratos",
-    },
-    {
-      path: "/fundo-protege",
-      label: "Fundo Protege",
-      icon: ShieldAlert,
-      description: "Acompanhamento físico dos contratos",
-    },
-    {
-      path: "/eps",
-      label: "EPS",
-      icon: PieChart,
-      description: "Acompanhamento físico dos contratos",
-    },
-    {
-      path: "/sei",
-      label: "Processos SEI",
-      icon: Inbox,
-      description: "Caixa de entrada da gerência",
-    },
-    {
-      path: "/contratacoes",
-      label: "Andamento das Contratações",
-      icon: ClipboardList,
-      description: "Andamento das Contratações - Sislog",
     },
   ];
 
@@ -159,29 +103,22 @@ const Sidebar = ({ contractsAlertCount = 0, isOpen, onClose }) => {
   const sidebarContent = (
     <div className="h-full flex flex-col bg-emerald-950">
       {/* Logo Area */}
-      <div className="pl-3 pr-6 pt-4 pb-4 border-b border-emerald-900/20 flex items-center justify-between">
-        <div className="flex items-center min-w-0">
-          <img
-            src="/Logo de gestão financeira..png"
-            alt="Logo GEMOC"
-            className="w-40 h-auto object-contain shrink-0"
-            style={{
-              filter: 'drop-shadow(0 0 1.5px #ffffff) drop-shadow(0 0 1.5px #ffffff) drop-shadow(0 0 1.5px #ffffff)',
-            }}
-          />
-          <div className="min-w-0 -ml-3">
-            <h1 className="font-black text-white text-lg tracking-tight leading-none">
-              GEMOC
-            </h1>
-            <p className="text-[9px] font-semibold text-emerald-500/70 uppercase tracking-[0.25em] mt-1">
-              Analytics
-            </p>
-          </div>
-        </div>
+      <div className="pt-6 pb-3 border-b border-emerald-900/20 flex flex-col items-center">
+        <img
+          src="/Logo de gestão financeira..png"
+          alt="Logo Gestão DMA"
+          className="w-[13.5rem] h-auto object-contain"
+          style={{
+            filter: 'drop-shadow(0 0 1.5px #ffffff) drop-shadow(0 0 1.5px #ffffff) drop-shadow(0 0 1.5px #ffffff)',
+          }}
+        />
+        <p className="relative z-10 text-[11px] font-bold text-emerald-400/90 uppercase tracking-[0.35em] -mt-11">
+          Analytics
+        </p>
         {/* Close button - mobile only */}
         <button
           onClick={onClose}
-          className="lg:hidden p-2 rounded-lg text-emerald-400/60 hover:bg-emerald-900/30 hover:text-emerald-200/80 transition-colors"
+          className="lg:hidden p-2 rounded-lg text-emerald-400/60 hover:bg-emerald-900/30 hover:text-emerald-200/80 transition-colors absolute top-4 right-4"
         >
           <X size={20} strokeWidth={2} />
         </button>
