@@ -168,7 +168,7 @@ if (preview) {
                 <p className="text-sm font-medium text-slate-400">Nenhum contrato com ficha encontrado</p>
               </td></tr>
             ) : sorted.map(function(item, idx) {
-              return (<tr key={item.cd_contrato || idx} className="group cursor-pointer transition-all duration-200 hover:bg-emerald-50/40" onClick={function() { handleOpenFile(item.ficha); }}>
+              return (<tr key={item.cd_contrato || idx} className="group cursor-pointer transition-all duration-200 hover:bg-emerald-50/40" onClick={function() { setSelectedContratoId(item.id_bloco || item.cd_contrato); }}>
                 <td className="px-2 py-1.5">
                   <div className="flex items-center gap-1.5">
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-100/50 text-[9px] font-semibold text-emerald-700 shrink-0">{item.nu_bloco || "--"}</span>
