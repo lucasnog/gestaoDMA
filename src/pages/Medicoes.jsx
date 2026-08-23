@@ -3,24 +3,20 @@ import {
   BarChart3,
   Ruler,
   TrendingUp,
-  Building2,
   FileText,
-  Clock,
   Download,
-  CheckCircle2,
   DollarSign
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
-import { formatCurrency, formatDate, formatPercent } from '../utils/formatters';
+import { formatCurrency, formatDate } from '../utils/formatters';
 import * as apiService from '../services/api.service';
 import Card from '../components/ui/Card';
-import Badge from '../components/ui/Badge';
-import ProgressBar from '../components/ui/ProgressBar';
 import Skeleton from '../components/ui/Skeleton';
 import Pagination from '../components/ui/Pagination';
 import ContractDetail from '../components/contract/ContractDetail';
 import ExportDialog from '../components/ui/ExportDialog';
 import { useDashboardContext } from '../layouts/DashboardLayout';
+import { CONTRATO_ALVO } from '../config/constants';
 
 const Medicoes = () => {
   const { contratos, contratosRaw, loading, selectedBloco, selectedBlocos, selectedSegmentos, blocosDisponiveis, customDateStart, customDateEnd, selectedPeriod } = useDashboardContext();
@@ -38,15 +34,10 @@ const Medicoes = () => {
   const [itemsPerPage, setItemsPerPage] = useState(5);
   const [exportOpen, setExportOpen] = useState(false);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: null });
+  const [medicoesList, setMedicoesList] = useState([]);
+  const [medicoesLoading, setMedicoesLoading] = useState(true);
 
 
-
-  const isNewDate = (dateStr) => {
-    if (!dateStr) return false;
-    const d = new Date(dateStr);
-    const cutoff = new Date(Date.now() - 7 * 86400000);
-    return d >= cutoff;
-  };
 
   const handleSort = (key) => {
     setSortConfig(prev => {
@@ -57,19 +48,7 @@ const Medicoes = () => {
     });
   };
 
-  // (exportColumns movido para depois de anosExport)
-
   // ─── Helpers: período ──────────────────────────────────────
-  const getWeekNumber = (dateStr) => {
-    if (!dateStr) return null;
-    const d = new Date(dateStr + 'T12:00:00');
-    if (isNaN(d.getTime())) return null;
-    const year = d.getFullYear();
-    const oneJan = new Date(year, 0, 1);
-    const weekNum = Math.ceil((((d - oneJan) / 86400000) + oneJan.getDay() + 1) / 7);
-    return `${year}-${String(weekNum).padStart(2, '0')}`;
-  };
-
   const getPeriodoKey = (data, periodo) => {
     if (!data) return null;
     if (periodo === 'dia') return data;
@@ -87,18 +66,6 @@ const Medicoes = () => {
     if (periodo === 'ano') return data.substring(0, 4);
     return null;
   };
-
-  function toggleSelect(id) {
-    setSelectedIds(function(prev) {
-      if (prev.includes(id)) return prev.filter(function(x) { return x !== id; });
-      return [].concat(prev, [id]);
-    });
-  }
-
-  function toggleSelectAll() {
-    if (selectedIds.length === sorted.length) { setSelectedIds([]); }
-    else { setSelectedIds(sorted.map(function(c) { return c.id_bloco; }).filter(Boolean)); }
-  }
 
   const getPeriodoLabel = (periodoKey, tipo) => {
     if (!periodoKey) return '';
@@ -133,10 +100,6 @@ const Medicoes = () => {
   // Cada contrato já vem com vl_total_medido do banco (valores_contrato)
   const getVlMedido = (c) => parseFloat(c.vl_total_medido || 0);
   const getVlTotal = (c) => parseFloat(c.vl_total || 0);
-  const getPercMedido = (c) => {
-    const total = getVlTotal(c);
-    return total > 0 ? (getVlMedido(c) / total) * 100 : 0;
-  };
 
   // Fetch monthly data + detail conforme dataRef (e período quandoseleciona no gráfico)
   useEffect(() => {
@@ -156,6 +119,20 @@ const Medicoes = () => {
   useEffect(() => {
     setTablePage(1);
   }, [contratos, itemsPerPage]);
+
+  // Busca todas as medições do contrato alvo (61/2023)
+  useEffect(() => {
+    let active = true;
+    setMedicoesLoading(true);
+    apiService.getContratoDetails(CONTRATO_ALVO.id)
+      .then((details) => {
+        if (!active) return;
+        setMedicoesList(Array.isArray(details?.medicoes) ? details.medicoes : []);
+      })
+      .catch(() => { if (active) setMedicoesList([]); })
+      .finally(() => { if (active) setMedicoesLoading(false); });
+    return () => { active = false; };
+  }, []);
 
   // Mapa: mes -> contratos com detalhes (para tooltip e filtro)
   const monthlyDetailFiltrado = React.useMemo(() => {
@@ -214,36 +191,18 @@ const detailMap = React.useMemo(() => {
     return map;
   }, [monthlyDetailPorPeriodo, contratos]);
 
-  var anosExport = useMemo(function() {
-    var lista = [];
-    for (var y = 2021; y <= new Date().getFullYear(); y++) lista.push(String(y));
-    return lista;
-  }, []);
-
   const exportColumns = useMemo(function() {
-    var cols = [
-      { key: 'nu_bloco', label: 'Bloco' },
-      { key: 'segmento', label: 'Segmento' },
-      { key: 'cd_contrato', label: 'Contrato' },
-      { key: 'lote', label: 'Lote' },
-      { key: 'razao_social', label: 'Empresa' },
-      { key: 'municipios', label: 'Municípios' },
-      { key: 'situacao_atual', label: 'Status' },
-      { key: 'vl_total', label: 'Valor Contrato' },
-      { key: 'vl_total_medido', label: 'Total Medido' },
+    return [
+      { key: 'nr_medicao', label: 'Nº Medição' },
+      { key: 'descricao', label: 'Descrição' },
+      { key: 'dt_medicao', label: 'Data Medição' },
+      { key: 'dt_periodo_inicio', label: 'Início Período' },
+      { key: 'dt_periodo_fim', label: 'Fim Período' },
+      { key: 'vl_pi', label: 'PI' },
+      { key: 'vl_ra', label: 'RA' },
+      { key: 'vl_total', label: 'Total Medido' },
     ];
-    anosExport.forEach(function(a) { cols.push({ key: 'medido_' + a, label: 'Medido ' + a }); });
-    cols.push(
-      { key: 'perc_pago', label: 'Avanço Financeiro' },
-      { key: 'ultima_medicao_data', label: 'Medição Data' },
-      { key: 'ultima_medicao_valor', label: 'Medição Valor' },
-      { key: 'dt_vigencia_inicio', label: 'Início Vigência' },
-      { key: 'dt_vigencia_fim', label: 'Fim Vigência' },
-      { key: 'dt_execucao_inicio', label: 'Início Execução' },
-      { key: 'dt_execucao_fim', label: 'Fim Execução' },
-    );
-    return cols;
-  }, [anosExport]);
+  }, []);
 
   // Chart data computado do monthlyDetailPorPeriodo agrupado por período
   const chartData = React.useMemo(() => {
@@ -328,95 +287,6 @@ const detailMap = React.useMemo(() => {
     }
     return lista;
   }, [contratos, contratosFiltradosMes, selectedMes, filtroMedicaoFinal]);
-
-  // Mapa com dados de medição do período selecionado (para exibir na coluna e ordenar)
-  const monthlyDataMap = React.useMemo(() => {
-    if (!selectedMes) return null;
-    const isAno = selectedMes.length === 4;
-    const map = {};
-    const pickDt = (item) => dataRef === 'medicao' ? (item.dt_medicao || item.dt_periodo_fim || item.mes) : (item.dt_periodo_fim || item.dt_medicao || item.mes);
-    if (!isAno && detailMap[selectedMes]) {
-      detailMap[selectedMes].forEach(item => {
-        const dt = pickDt(item);
-        map[item.id_bloco_fk] = { dt, dtNovo: item.dt_medicao || dt, vl: item.vl_total, dtPeriodoInicio: item.dt_periodo_inicio, dtPeriodoFim: item.dt_periodo_fim, nrMedicao: item.nr_medicao };
-      });
-    } else if (isAno) {
-        Object.entries(detailMap).forEach(([key, items]) => {
-            if (key.startsWith(selectedMes)) {
-                items.forEach(item => {
-                    if (!map[item.id_bloco_fk]) {
-                        map[item.id_bloco_fk] = { dt: null, dtNovo: null, vl: 0, dtPeriodoInicio: null, dtPeriodoFim: null, nrMedicao: null };
-                    }
-                    map[item.id_bloco_fk].vl += item.vl_total;
-                    const itemDt = pickDt(item);
-                    const itemDtNovo = item.dt_medicao || itemDt;
-                    if (!map[item.id_bloco_fk].dt || itemDt > map[item.id_bloco_fk].dt) {
-                        map[item.id_bloco_fk].dt = itemDt;
-                        map[item.id_bloco_fk].dtNovo = itemDtNovo;
-                        map[item.id_bloco_fk].dtPeriodoInicio = item.dt_periodo_inicio || null;
-                        map[item.id_bloco_fk].dtPeriodoFim = item.dt_periodo_fim || null;
-                        map[item.id_bloco_fk].nrMedicao = item.nr_medicao || null;
-                    }
-                });
-            }
-        });
-    }
-    return Object.keys(map).length > 0 ? map : null;
-  }, [selectedMes, detailMap, dataRef]);
-
-  // Mapa com a última medição de cada contrato dentro do período filtrado (year/bloco/segmento)
-  const periodoDataMap = React.useMemo(() => {
-    if (!Array.isArray(monthlyDetailPorPeriodo)) return null;
-    const map = {};
-    monthlyDetailPorPeriodo.forEach(item => {
-      const key = item.id_bloco_fk;
-      if (!key) return;
-      const dt = dataRef === 'medicao' ? (item.dt_medicao || (item.mes ? item.mes + '-01' : null)) : (item.dt_periodo_fim || item.dt_medicao || (item.mes ? item.mes + '-01' : null));
-      if (!dt) return;
-      const dtNovo = item.dt_medicao || dt;
-      if (!map[key] || dt > map[key].dt) {
-        map[key] = { dt, dtNovo, vl: parseFloat(item.vl_total || 0), dtPeriodoInicio: item.dt_periodo_inicio, dtPeriodoFim: item.dt_periodo_fim, nrMedicao: item.nr_medicao || null };
-      }
-    });
-    return Object.keys(map).length > 0 ? map : null;
-  }, [monthlyDetailPorPeriodo, dataRef]);
-
-  const sorted = React.useMemo(() => {
-    var list = contratosBase ? [...contratosBase] : [];
-
-    if (sortConfig.key && sortConfig.direction) {
-      list.sort((a, b) => {
-        let aVal, bVal;
-        if (sortConfig.key === 'ultima_medicao_data') {
-          aVal = monthlyDataMap?.[a.id_bloco]?.dtNovo || periodoDataMap?.[a.id_bloco]?.dtNovo || a.ultima_medicao_data;
-          bVal = monthlyDataMap?.[b.id_bloco]?.dtNovo || periodoDataMap?.[b.id_bloco]?.dtNovo || b.ultima_medicao_data;
-        } else {
-          aVal = a[sortConfig.key];
-          bVal = b[sortConfig.key];
-        }
-        if (aVal == null) return 1;
-        if (bVal == null) return -1;
-        const aNum = parseFloat(aVal);
-        const bNum = parseFloat(bVal);
-        if (!isNaN(aNum) && !isNaN(bNum)) {
-          return sortConfig.direction === 'asc' ? aNum - bNum : bNum - aNum;
-        }
-        aVal = String(aVal).toLowerCase();
-        bVal = String(bVal).toLowerCase();
-        return sortConfig.direction === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
-      });
-    } else {
-      list.sort((a, b) => {
-        const aDt = monthlyDataMap?.[a.id_bloco]?.dtNovo || periodoDataMap?.[a.id_bloco]?.dtNovo || a.ultima_medicao_data;
-        const bDt = monthlyDataMap?.[b.id_bloco]?.dtNovo || periodoDataMap?.[b.id_bloco]?.dtNovo || b.ultima_medicao_data;
-        if (!aDt && !bDt) return 0;
-        if (!aDt) return 1;
-        if (!bDt) return -1;
-        return bDt.localeCompare(aDt);
-      });
-    }
-    return list;
-  }, [contratosBase, selectedMes, detailMap, sortConfig, filtroMedicaoFinal, selectedIds, monthlyDataMap, periodoDataMap]);
 
   // KPIs — usa contratosBase (filtro de mês + medição final)
   var contratosKpi = contratosBase;
@@ -514,37 +384,52 @@ const detailMap = React.useMemo(() => {
     },
   ];
 
-    const totalTablePages = Math.max(1, Math.ceil(sorted.length / itemsPerPage));
+  // Ordenação da lista de medições (por padrão, Nº desc)
+  const sortedMedicoes = React.useMemo(() => {
+    const list = [...medicoesList];
+    if (sortConfig.key && sortConfig.direction) {
+      list.sort((a, b) => {
+        let aVal, bVal;
+        if (sortConfig.key === 'dt_medicao' || sortConfig.key === 'dt_periodo_inicio' || sortConfig.key === 'dt_periodo_fim') {
+          aVal = a[sortConfig.key] || '';
+          bVal = b[sortConfig.key] || '';
+        } else {
+          aVal = a[sortConfig.key];
+          bVal = b[sortConfig.key];
+        }
+        if (aVal == null) return 1;
+        if (bVal == null) return -1;
+        const aNum = parseFloat(aVal);
+        const bNum = parseFloat(bVal);
+        if (!isNaN(aNum) && !isNaN(bNum)) {
+          return sortConfig.direction === 'asc' ? aNum - bNum : bNum - aNum;
+        }
+        aVal = String(aVal).toLowerCase();
+        bVal = String(bVal).toLowerCase();
+        return sortConfig.direction === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+      });
+    } else {
+      list.sort((a, b) => (parseInt(b.nr_medicao) || 0) - (parseInt(a.nr_medicao) || 0));
+    }
+    return list;
+  }, [medicoesList, sortConfig]);
+
+  const totalTablePages = Math.max(1, Math.ceil(sortedMedicoes.length / itemsPerPage));
   const safeTablePage = Math.min(tablePage, totalTablePages);
-  const pagedContracts = sorted.slice((safeTablePage - 1) * itemsPerPage, safeTablePage * itemsPerPage);
+  const pagedMedicoes = sortedMedicoes.slice((safeTablePage - 1) * itemsPerPage, safeTablePage * itemsPerPage);
 
   const exportData = React.useMemo(() => {
-    const yearlyMap = {};
-    var anos = [];
-    for (var y = 2021; y <= new Date().getFullYear(); y++) anos.push(String(y));
-    // Dedup monthlyDetailPorPeriodo por (id_bloco_fk, mes)
-    var seen = new Set();
-    (monthlyDetailPorPeriodo || []).forEach(item => {
-      var key = item.id_bloco_fk + '|' + (item.mes || '');
-      if (seen.has(key)) return;
-      seen.add(key);
-      const ano = (item.mes || "").substring(0, 4);
-      if (!ano) return;
-      if (!yearlyMap[item.id_bloco_fk]) yearlyMap[item.id_bloco_fk] = {};
-      yearlyMap[item.id_bloco_fk][ano] = (yearlyMap[item.id_bloco_fk][ano] || 0) + parseFloat(item.vl_total || 0);
-    });
-    // Dedup sorted por id_bloco
-    var seenContratos = new Set();
-    return (sorted || []).filter(function(c) {
-      if (seenContratos.has(c.id_bloco)) return false;
-      seenContratos.add(c.id_bloco);
-      return true;
-    }).map(c => {
-      var row = { ...c };
-      anos.forEach(function(a) { row['medido_' + a] = yearlyMap[c.id_bloco]?.[a] || 0; });
-      return row;
-    });
-  }, [sorted, monthlyDetailPorPeriodo]);
+    return sortedMedicoes.map((m) => ({
+      nr_medicao: m.nr_medicao,
+      descricao: m.descricao,
+      dt_medicao: m.dt_medicao,
+      dt_periodo_inicio: m.dt_periodo_inicio,
+      dt_periodo_fim: m.dt_periodo_fim,
+      vl_pi: parseFloat(m.vl_pi || 0),
+      vl_ra: parseFloat(m.vl_ra || 0),
+      vl_total: parseFloat(m.vl_total || 0) || (parseFloat(m.vl_pi || 0) + parseFloat(m.vl_ra || 0)),
+    }));
+  }, [sortedMedicoes]);
 
   const chartCss = `
     .recharts-wrapper *:focus,
@@ -584,7 +469,7 @@ const detailMap = React.useMemo(() => {
           )}
           <button
             onClick={() => setExportOpen(true)}
-            disabled={loading || sorted.length === 0}
+            disabled={medicoesLoading || sortedMedicoes.length === 0}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <Download size={14} strokeWidth={2} />
@@ -710,34 +595,14 @@ const detailMap = React.useMemo(() => {
         )}
       </Card>
 
-      {/* Tabela de Contratos com Medição */}
+{/* Tabela de Medições do Contrato */}
       <Card padding="p-0" className="overflow-hidden">
         <div className="px-6 py-4 border-b border-emerald-100/30 bg-emerald-50/30 flex items-center gap-2.5 flex-wrap">
           <Ruler size={16} className="text-emerald-600" strokeWidth={2} />
           <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
             Medições
           </span>
-          {selectedMes && (
-            <>
-              <span className="px-2.5 py-0.5 rounded-lg bg-blue-600/10 text-blue-600 border border-blue-600/20 text-[10px] font-semibold">
-                {getPeriodoLabel(selectedMes, chartPeriodo)}
-              </span>
-              <button
-                onClick={() => setSelectedMes(null)}
-                className="flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[10px] font-semibold text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-              >
-                Limpar filtros
-              </button>
-            </>
-          )}
-          <button
-            onClick={function() { setFiltroMedicaoFinal(!filtroMedicaoFinal); }}
-            className={'ml-auto flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold border transition-all ' + (filtroMedicaoFinal ? 'bg-amber-50 text-amber-700 border-amber-300' : 'bg-white text-slate-500 border-emerald-100/60 hover:border-emerald-200')}
-          >
-            <CheckCircle2 size={12} strokeWidth={2} />
-            {filtroMedicaoFinal ? 'Medição Final' : 'Final'}
-          </button>
-          <span className="text-[10px] font-medium text-slate-400 ml-2">{sorted.length} contratos</span>
+          <span className="text-[10px] font-medium text-slate-400 ml-2">{medicoesList.length} registros · {CONTRATO_ALVO.label}</span>
         </div>
 
         {/* ─── Desktop: tabela completa ─────────── */}
@@ -745,139 +610,85 @@ const detailMap = React.useMemo(() => {
           <table className="w-full text-left">
             <thead>
               <tr className="border-b border-emerald-100/30">
-                <th className="px-3 py-3 w-8">
-                  <input type="checkbox" checked={selectedIds.length > 0 && selectedIds.length === sorted.length} onChange={toggleSelectAll} className="w-3.5 h-3.5 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer" />
+                <th onClick={() => handleSort('nr_medicao')} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none w-16">
+                  Nº{sortConfig.key === 'nr_medicao' ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
                 </th>
                 <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-                  Contrato
+                  Descrição
                 </th>
-                <th onClick={() => handleSort('lote')} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none">
-                  Lote{sortConfig.key === 'lote' ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
-                </th>
-                <th onClick={() => handleSort('razao_social')} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none">
-                  Empresa{sortConfig.key === 'razao_social' ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
-                </th>
-                <th onClick={() => handleSort('vl_total')} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none">
-                  Valor Contrato{sortConfig.key === 'vl_total' ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
+                <th onClick={() => handleSort('dt_medicao')} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none">
+                  Data Medição{sortConfig.key === 'dt_medicao' ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
                 </th>
                 <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-                  Nº
+                  Período
                 </th>
-                <th onClick={() => handleSort('ultima_medicao_data')} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none">
-                  Data{sortConfig.key === 'ultima_medicao_data' ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
+                <th onClick={() => handleSort('vl_pi')} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none text-right">
+                  PI{sortConfig.key === 'vl_pi' ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
                 </th>
-                <th onClick={() => handleSort('vl_total_medido')} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none">
-                  Total Medido{sortConfig.key === 'vl_total_medido' ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
+                <th onClick={() => handleSort('vl_ra')} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none text-right">
+                  RA{sortConfig.key === 'vl_ra' ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
                 </th>
-                <th onClick={() => handleSort('perc_pago')} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none text-center">
-                  % Medido{sortConfig.key === 'perc_pago' ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
+                <th onClick={() => handleSort('vl_total')} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none text-right">
+                  Total{sortConfig.key === 'vl_total' ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
                 </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-emerald-100/20">
-              {loading ? (
+              {medicoesLoading ? (
                 [...Array(6)].map((_, i) => (
                   <tr key={i}>
-                    {[...Array(9)].map((_, j) => (
+                    {[...Array(7)].map((_, j) => (
                       <td key={j} className="px-4 py-3">
-                        <Skeleton className={`h-6 ${j === 0 ? 'w-4' : j === 1 ? 'w-48' : j === 2 ? 'w-12' : 'w-20'}`} />
+                        <Skeleton className={`h-6 ${j === 0 ? 'w-10' : j === 1 ? 'w-48' : 'w-20'}`} />
                       </td>
                     ))}
                   </tr>
                 ))
-              ) : sorted.length === 0 ? (
+              ) : pagedMedicoes.length === 0 ? (
                 <tr>
-                  <td colSpan="9" className="px-6 py-20 text-center">
+                  <td colSpan="7" className="px-6 py-20 text-center">
                     <FileText size={40} className="mx-auto text-emerald-200 mb-4" strokeWidth={1.5} />
                     <p className="text-sm font-medium text-slate-400">Nenhuma medição encontrada</p>
                     <p className="text-xs text-slate-300 mt-1">Tente ajustar os filtros no painel principal</p>
                   </td>
                 </tr>
               ) : (
-                pagedContracts.map((c, idx) => {
-                  const percMedido = getPercMedido(c);
-                  const vlMedido = getVlMedido(c);
-                  const vlTotal = getVlTotal(c);
-
+                pagedMedicoes.map((m, idx) => {
+                  const pi = parseFloat(m.vl_pi || 0);
+                  const ra = parseFloat(m.vl_ra || 0);
+                  const total = parseFloat(m.vl_total || 0) || pi + ra;
                   return (
                     <tr
-                      key={`${c.nu_bloco}-${c.cd_contrato}-${idx}`}
-                      onClick={() => setSelectedContratoId(c.id_bloco || c.cd_contrato)}
+                      key={`${m.nr_medicao}-${idx}`}
+                      onClick={() => setSelectedContratoId(CONTRATO_ALVO.id)}
                       className="group cursor-pointer transition-all duration-200 hover:bg-emerald-50/40"
                     >
-                      <td className="px-3 py-3 w-8" onClick={function(e) { e.stopPropagation(); }}>
-                        <input type="checkbox" checked={selectedIds.includes(c.id_bloco)} onChange={function() { toggleSelect(c.id_bloco); }} className="w-3.5 h-3.5 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer" />
+                      <td className="px-4 py-3">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 border border-emerald-100/50 text-[11px] font-semibold text-emerald-700">
+                          {m.nr_medicao ? `${m.nr_medicao}ª` : '—'}
+                        </span>
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 border border-emerald-100/50 text-[11px] font-semibold text-emerald-700">
-                            {c.nu_bloco}
+                        <span className="text-sm font-semibold text-slate-900">{m.descricao || '—'}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-sm text-slate-700">{m.dt_medicao ? formatDate(m.dt_medicao) : '—'}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        {m.dt_periodo_fim ? (
+                          <span className="text-xs text-slate-400">
+                            {m.dt_periodo_inicio ? `${formatDate(m.dt_periodo_inicio)} a ` : ''}{formatDate(m.dt_periodo_fim)}
                           </span>
-                          <div className="min-w-0">
-                            <span className="text-sm font-semibold text-slate-900 truncate block">{c.cd_contrato}</span>
-                            <span className="text-[10px] text-slate-400 truncate block">{c.segmento || '—'}</span>
-                          </div>
-                        </div>
+                        ) : <span className="text-[11px] text-slate-400">—</span>}
                       </td>
-                      <td className="px-4 py-3">
-                        <span className="text-sm font-semibold text-slate-900">{c.lote || '—'}</span>
+                      <td className="px-4 py-3 text-right">
+                        <span className="text-sm font-semibold text-emerald-700">{formatCurrency(pi)}</span>
                       </td>
-                      <td className="px-6 py-4 max-w-[180px]">
-                        <p className="text-sm text-slate-700 truncate">{c.razao_social}</p>
-                        {c.municipios?.length > 0 && (
-                          <p className="text-[10px] text-emerald-600 font-medium truncate">{c.municipios.join(', ')}</p>
-                        )}
+                      <td className="px-4 py-3 text-right">
+                        <span className="text-sm font-semibold text-amber-600">{ra > 0 ? formatCurrency(ra) : '—'}</span>
                       </td>
-                      <td className="px-6 py-4">
-                        <span className="text-sm font-semibold text-slate-900">{formatCurrency(vlTotal)}</span>
-                      </td>
-                      <td className="px-4 py-3">
-                        {c.has_medicao_final ? (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">Final</span>
-                        ) : (() => {
-                          const md = monthlyDataMap?.[c.id_bloco];
-                          const pd = periodoDataMap?.[c.id_bloco];
-                          const nr = md?.nrMedicao || (selectedMes ? null : (pd?.nrMedicao || c.total_medicoes));
-                          return nr ? <span className="text-[11px] text-slate-400">{nr + 'ª'}</span> : <span className="text-[11px] text-slate-400">—</span>;
-                        })()}
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex flex-col gap-1">
-                          {(() => {
-                            const md = monthlyDataMap?.[c.id_bloco];
-                            const pd = periodoDataMap?.[c.id_bloco];
-                            const dt = md?.dtNovo || (selectedMes ? null : (pd?.dtNovo || (filtroMedicaoFinal && c.dt_medicao_final ? c.dt_medicao_final : c.ultima_medicao_data)));
-                            const dtPeriodoInicio = md?.dtPeriodoInicio || (selectedMes ? null : (pd?.dtPeriodoInicio || null));
-                            const dtPeriodoFim = md?.dtPeriodoFim || (selectedMes ? null : (pd?.dtPeriodoFim || null));
-                            const vl = md?.vl || (selectedMes ? null : (pd?.vl || (parseFloat(c.ultima_medicao_valor || 0) > 0 && !filtroMedicaoFinal ? c.ultima_medicao_valor : null)));
-                            return (
-                              <>
-                                <span className="text-xs text-slate-600 font-medium inline-flex items-center gap-1">
-                                  {dt ? <>{formatDate(dt)}{isNewDate(dt) && <Badge variant="success" size="sm">Novo</Badge>}</> : '\u2014'}
-                                </span>
-                                {dtPeriodoFim ? (
-                                  <span className="text-[10px] text-slate-400">
-                                    Período: {dtPeriodoInicio ? `${formatDate(dtPeriodoInicio)} a ` : ''}{formatDate(dtPeriodoFim)}
-                                  </span>
-                                ) : null}
-                                {vl ? <span className="text-[10px] font-medium text-emerald-600">{formatCurrency(vl)}</span> : null}
-                              </>
-                            );
-                          })()}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-sm font-semibold text-emerald-600">{formatCurrency(vlMedido)}</span>
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <div className="flex items-center justify-center gap-2">
-                          <span className={`text-sm font-bold ${percMedido >= 90 ? 'text-red-500' : percMedido >= 75 ? 'text-amber-500' : 'text-slate-900'}`}>
-                            {percMedido.toFixed(1)}%
-                          </span>
-                          <div className="w-16">
-                            <ProgressBar progress={percMedido} size="sm" />
-                          </div>
-                        </div>
+                      <td className="px-4 py-3 text-right">
+                        <span className="text-sm font-bold text-slate-900">{formatCurrency(total)}</span>
                       </td>
                     </tr>
                   );
@@ -895,29 +706,17 @@ const detailMap = React.useMemo(() => {
         data={exportData}
         columns={exportColumns}
         formatters={function() {
-          var f = {
+          return {
+            dt_medicao: formatDate,
+            dt_periodo_inicio: formatDate,
+            dt_periodo_fim: formatDate,
+            vl_pi: formatCurrency,
+            vl_ra: formatCurrency,
             vl_total: formatCurrency,
-            vl_total_medido: formatCurrency,
-            perc_pago: formatPercent,
-            ultima_medicao_valor: formatCurrency,
-            ultima_medicao_data: formatDate,
-            dt_vigencia_inicio: formatDate,
-            dt_vigencia_fim: formatDate,
-            dt_execucao_inicio: formatDate,
-            dt_execucao_fim: formatDate,
           };
-          for (var y = 2021; y <= new Date().getFullYear(); y++) { f['medido_' + y] = formatCurrency; }
-          return f;
         }()}
         filename="medicoes"
         title="Exportar Medições"
-        onExtraDownload={() => {
-          const filtros = {};
-          const blocos = selectedBlocos?.length > 0 ? selectedBlocos : blocosDisponiveis;
-          if (blocos?.length > 0) filtros.bloco = blocos.join(',');
-          if (selectedSegmentos?.length > 0) filtros.segmento = selectedSegmentos.join(',');
-          apiService.downloadMedicoesPorSegmento(filtros);
-        }}
       />
 
       <ContractDetail
@@ -926,45 +725,6 @@ const detailMap = React.useMemo(() => {
       />
     </div>
     </>
-  );
-};
-
-// ─── Tooltip customizado ─────────────────────────────────────
-const CustomTooltip = ({ active, payload, label, detailMap }) => {
-  if (!active || !payload || !payload.length) return null;
-  const valor = payload[0]?.value || 0;
-  const contratos = detailMap?.[label] || [];
-  const [y, m] = (label || '').split('-');
-  const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
-  const nomeMes = meses[parseInt(m)-1] || label;
-
-  // Agrupa por segmento e totaliza
-  const segmentTotals = {};
-  contratos.forEach(c => {
-    const seg = c.segmento || 'Sem segmento';
-    if (!segmentTotals[seg]) segmentTotals[seg] = 0;
-    segmentTotals[seg] += c.vl_total;
-  });
-  const segmentos = Object.entries(segmentTotals).sort((a, b) => b[1] - a[1]); // maior valor primeiro
-
-  return (
-    <div className="bg-white border border-emerald-100/60 rounded-xl shadow-lg px-4 py-3 max-w-[300px]">
-      <p className="text-[11px] font-bold text-slate-700 mb-2">{nomeMes} {y}</p>
-      <p className="text-[10px] font-semibold text-slate-400 mb-2">
-        Total: <span className="text-emerald-600">{formatCurrency(valor)}</span>
-        <span className="text-slate-300 ml-1">({contratos.length} contratos)</span>
-      </p>
-      {segmentos.length > 0 && (
-        <div className="border-t border-emerald-100/30 pt-2 mt-1 space-y-1.5">
-          {segmentos.map(([seg, total], i) => (
-            <div key={i} className="flex items-center justify-between gap-2 text-[10px]">
-              <span className="font-medium text-slate-600 truncate">{seg}</span>
-              <span className="font-semibold text-slate-800 shrink-0">{formatCurrency(total)}</span>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
   );
 };
 

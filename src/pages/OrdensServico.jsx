@@ -2,9 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
   FileText,
   Calendar,
-  Building2,
   TrendingUp,
-  ArrowRight,
   Clock,
   Download,
   BarChart3,
@@ -31,7 +29,7 @@ const TIPO_CORES = {
 };
 
 const OrdensServico = () => {
-  const { selectedBlocos, selectedSegmentos, search, contratos } = useDashboardContext();
+  const { selectedBlocos = [], selectedSegmentos = [], search, contratos } = useDashboardContext();
   const [allOs, setAllOs] = useState([]);
   const [stats, setStats] = useState(null);
   const [chartData, setChartData] = useState([]);
@@ -70,20 +68,11 @@ const OrdensServico = () => {
   }
 
   const exportColumns = useMemo(() => [
-    { key: 'BLOCO_NORM', label: 'Bloco' },
-    { key: 'CONTRATO', label: 'Contrato' },
-    { key: 'LOTE', label: 'Lote' },
-    { key: 'EMPRESA', label: 'Empresa' },
-    { key: 'SEGMENTO', label: 'Segmento' },
+    { key: 'OS_NUMERO', label: 'OS' },
+    { key: 'SEI', label: 'SEI' },
     { key: 'TIPO_DE_OS', label: 'Tipo' },
     { key: 'DATA_OS', label: 'Data' },
     { key: 'OBJETO_EXIBICAO', label: 'Objeto' },
-    { key: 'os_2021', label: 'OS 2021' },
-    { key: 'os_2022', label: 'OS 2022' },
-    { key: 'os_2023', label: 'OS 2023' },
-    { key: 'os_2024', label: 'OS 2024' },
-    { key: 'os_2025', label: 'OS 2025' },
-    { key: 'os_2026', label: 'OS 2026' },
   ], []);
 
   // ─── Helpers: período ──────────────────────────────────────
@@ -240,6 +229,17 @@ const OrdensServico = () => {
       return sortConfig.direction === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
     });
   }, [filteredOs, sortConfig]);
+
+  const exportData = useMemo(() => {
+    return filteredOs.map((os) => {
+      const seiMatch = (os.OS_SEI || '').match(/\(([^)]+)\)/);
+      return {
+        ...os,
+        OS_NUMERO: os.OS_SEI ? os.OS_SEI.split(' ')[0] : '',
+        SEI: seiMatch ? seiMatch[1] : '',
+      };
+    });
+  }, [filteredOs]);
 
   // Paginação
   const totalPages = Math.max(1, Math.ceil(sortedOs.length / itemsPerPage));
@@ -487,11 +487,11 @@ const OrdensServico = () => {
                 <th className="px-3 py-3 w-8">
                   <input type="checkbox" checked={selectedIds.length > 0 && selectedIds.length === sortedOs.length} onChange={toggleSelectAll} className="w-3.5 h-3.5 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer" />
                 </th>
-                <th className="px-3 sm:px-6 py-3 text-left text-[9px] sm:text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-                  Contrato
+                <th onClick={() => handleSort('OS_SEI')} className="px-3 sm:px-6 py-3 text-left text-[9px] sm:text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none">
+                  N&deg; da OS{sortConfig.key === 'OS_SEI' ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
                 </th>
-                <th onClick={() => handleSort('LOTE')} className="px-3 sm:px-6 py-3 text-left text-[9px] sm:text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none">
-                  Lote{sortConfig.key === 'LOTE' ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
+                <th className="px-3 sm:px-6 py-3 text-left text-[9px] sm:text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                  SEI
                 </th>
                 <th onClick={() => handleSort('TIPO_DE_OS')} className="px-3 sm:px-6 py-3 text-left text-[9px] sm:text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none">
                   Tipo{sortConfig.key === "TIPO_DE_OS" ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
@@ -513,6 +513,9 @@ const OrdensServico = () => {
                 pagedOs.map((os, idx) => {
                   const tipoCor = TIPO_CORES[os.TIPO_DE_OS] || { bg: 'from-slate-500 to-slate-600', shadow: 'shadow-slate-500/20', icon: FileText };
                   const TipoIcon = tipoCor.icon;
+                  const seiMatch = (os.OS_SEI || '').match(/\(([^)]+)\)/);
+                  const sei = seiMatch ? seiMatch[1] : '';
+                  const osNumero = os.OS_SEI ? os.OS_SEI.split(' ')[0] : '';
                   return (
                     <tr
                       key={`${os.CONTRATO}-${os.DATA_OS}-${idx}`}
@@ -523,18 +526,15 @@ const OrdensServico = () => {
                         <input type="checkbox" checked={selectedIds.includes(getOsId(os))} onChange={function() { toggleSelect(getOsId(os)); }} className="w-3.5 h-3.5 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer" />
                       </td>
                       <td className="px-3 sm:px-6 py-3 sm:py-4">
-                        <div className="flex items-center gap-2">
-                          <span className="inline-flex items-center gap-1 px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-md bg-emerald-50 border border-emerald-100/50 text-[9px] sm:text-[11px] font-semibold text-emerald-700">
-                            {os.BLOCO_NORM || '—'}
-                          </span>
-                          <div className="min-w-0">
-                            <span className="text-[11px] sm:text-sm font-semibold text-slate-900 truncate block">{os.CONTRATO}</span>
-                            <span className="text-[9px] sm:text-[10px] text-slate-400 truncate block">{os.SEGMENTO || '—'}</span>
-                          </div>
-                        </div>
+                        <span className="text-[11px] sm:text-sm font-semibold text-slate-900">{osNumero || '—'}</span>
                       </td>
-                      <td className="px-3 sm:px-6 py-3 sm:py-4">
-                        <span className="text-[11px] sm:text-sm font-semibold text-slate-900">{os.LOTE || '—'}</span>
+                      <td className="px-3 sm:px-6 py-3 sm:py-4" onClick={function(e) { e.stopPropagation(); }}>
+                        {sei ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] sm:text-xs text-slate-600 font-medium cursor-pointer hover:text-emerald-600 transition-colors" onClick={function(e) { e.stopPropagation(); navigator.clipboard.writeText(sei); }} title="Copiar número SEI">
+                            <FileText size={12} className="text-slate-400" />
+                            {sei}
+                          </span>
+                        ) : <span className="text-xs text-slate-300">—</span>}
                       </td>
                       <td className="px-3 sm:px-6 py-3 sm:py-4">
                         <span className={`inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md bg-gradient-to-br ${tipoCor.bg} text-white text-[9px] sm:text-[10px] font-semibold shadow-xs`}>
@@ -564,7 +564,7 @@ const OrdensServico = () => {
       <ExportDialog
         open={exportOpen}
         onClose={() => setExportOpen(false)}
-        data={filteredOs}
+        data={exportData}
         columns={exportColumns}
         formatters={{
           DATA_OS: formatDate,

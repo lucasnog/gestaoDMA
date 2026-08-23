@@ -10,13 +10,13 @@ import {
 import { getFirestore, doc, setDoc, getDoc, getDocs, collection, updateDoc, serverTimestamp } from 'firebase/firestore';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBBrBqmKS57MYUvFHxrTFuId_S3TJwaCj0",
-  authDomain: "gemoc-login.firebaseapp.com",
-  projectId: "gemoc-login",
-  storageBucket: "gemoc-login.firebasestorage.app",
-  messagingSenderId: "819519939",
-  appId: "1:819519939:web:668ff53d4c47029d5d5d76",
-  measurementId: "G-L8343PXT5W"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyBBrBqmKS57MYUvFHxrTFuId_S3TJwaCj0",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "gemoc-login.firebaseapp.com",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "gemoc-login",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "gemoc-login.firebasestorage.app",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "819519939",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:819519939:web:668ff53d4c47029d5d5d76",
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-L8343PXT5W"
 };
 
 const app = initializeApp(firebaseConfig);

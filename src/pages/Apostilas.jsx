@@ -35,7 +35,7 @@ const TIPO_CORES = {
 };
 
 const Apostilas = () => {
-  const { selectedBlocos, selectedSegmentos, search, contratos } = useDashboardContext();
+  const { selectedBlocos = [], selectedSegmentos = [], search, contratos } = useDashboardContext();
   const [allApostilas, setAllApostilas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -117,11 +117,8 @@ const Apostilas = () => {
   }
 
   const exportColumns = useMemo(() => [
-    { key: 'BLOCO_NORM', label: 'Bloco' },
-    { key: 'CONTRATO', label: 'Contrato' },
-    { key: 'LOTE', label: 'Lote' },
-    { key: 'SEGMENTO', label: 'Segmento' },
     { key: 'N_DO_ADITIVO', label: 'Nº da Apostila' },
+    { key: 'SEI', label: 'SEI' },
     { key: 'DATA_DA_ASSINATURA', label: 'Data da Assinatura' },
     { key: 'VALOR_DA_APOSTILA', label: 'Valor da Apostila' },
     { key: 'OBJETO', label: 'Objeto' },
@@ -233,6 +230,13 @@ const Apostilas = () => {
     let totalApostila = 0;
     for (const a of apostilas) totalApostila += parseFloat(a.VALOR_DA_APOSTILA) || 0;
     return { totalContratos, totalApostila };
+  }, [apostilas]);
+
+  const exportData = useMemo(() => {
+    return apostilas.map((a) => {
+      const seiMatch = (a.N_DO_ADITIVO || '').match(/\(([^)]+)\)/);
+      return { ...a, SEI: seiMatch ? seiMatch[1] : '' };
+    });
   }, [apostilas]);
 
   const buildContratoId = (a) => {
@@ -379,14 +383,11 @@ const Apostilas = () => {
                 <th className="px-3 py-3 w-8">
                   <input type="checkbox" checked={selectedIds.length > 0 && selectedIds.length === sortedApostilas.length} onChange={toggleSelectAll} className="w-3.5 h-3.5 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer" />
                 </th>
-                <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-                  Contrato
-                </th>
-                <th onClick={() => handleSort('LOTE')} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none">
-                  Lote{sortConfig.key === 'LOTE' ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
-                </th>
                 <th onClick={() => handleSort('N_DO_ADITIVO')} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none">
                   N&deg; da Apostila{sortConfig.key === 'N_DO_ADITIVO' ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
+                </th>
+                <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                  SEI
                 </th>
                 <th onClick={() => handleSort('DATA_DA_ASSINATURA')} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none">
                   Data{sortConfig.key === 'DATA_DA_ASSINATURA' ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
@@ -401,16 +402,15 @@ const Apostilas = () => {
                 [...Array(5)].map((_, i) => (
                   <tr key={i}>
                     <td className="px-3 py-3"><Skeleton className="h-4 w-4" /></td>
-                    <td className="px-4 py-3"><Skeleton className="h-6 w-44" /></td>
-                    <td className="px-4 py-3"><Skeleton className="h-6 w-12" /></td>
                     <td className="px-4 py-3"><Skeleton className="h-6 w-28" /></td>
+                    <td className="px-4 py-3"><Skeleton className="h-6 w-20" /></td>
                     <td className="px-4 py-3"><Skeleton className="h-6 w-24" /></td>
                     <td className="px-4 py-3"><Skeleton className="h-6 w-24" /></td>
                   </tr>
                 ))
               ) : pagedData.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="px-6 py-20 text-center">
+                  <td colSpan="5" className="px-6 py-20 text-center">
                     <FileText size={40} className="mx-auto text-emerald-200 mb-4" strokeWidth={1.5} />
                     <p className="text-sm font-medium text-slate-400">Nenhuma apostila encontrada</p>
                     <p className="text-xs text-slate-300 mt-1">Tente ajustar os filtros</p>
@@ -419,26 +419,22 @@ const Apostilas = () => {
               ) : (
                 pagedData.map((a, idx) => {
                   const valorApostila = parseFloat(a.VALOR_DA_APOSTILA) || 0;
+                  const seiMatch = (a.N_DO_ADITIVO || '').match(/\(([^)]+)\)/);
+                  const sei = seiMatch ? seiMatch[1] : '';
                   return (
                     <tr key={`${a.CONTRATO}-${a.N_DO_ADITIVO}-${idx}`} onClick={() => setSelectedContratoId(buildContratoId(a))} className="group cursor-pointer transition-all duration-200 hover:bg-emerald-50/40">
                       <td className="px-3 py-3 w-8" onClick={function(e) { e.stopPropagation(); }}>
                         <input type="checkbox" checked={selectedIds.includes(getApostilaId(a))} onChange={function() { toggleSelect(getApostilaId(a)); }} className="w-3.5 h-3.5 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer" />
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 border border-emerald-100/50 text-[11px] font-semibold text-emerald-700">
-                            {a.BLOCO_NORM || a.BLOCO?.replace('Bloco ', '')}
+                      <td className="px-4 py-3"><span className="text-sm font-semibold text-slate-900">{a.N_DO_ADITIVO ? a.N_DO_ADITIVO.split(' ')[0] : '—'}</span></td>
+                      <td className="px-4 py-3" onClick={function(e) { e.stopPropagation(); }}>
+                        {sei ? (
+                          <span className="inline-flex items-center gap-1.5 text-xs text-slate-600 font-medium cursor-pointer hover:text-emerald-600 transition-colors" onClick={function(e) { e.stopPropagation(); navigator.clipboard.writeText(sei); }} title="Copiar número SEI">
+                            <FileText size={12} className="text-slate-400" />
+                            {sei}
                           </span>
-                          <div className="min-w-0">
-                            <span className="text-sm font-semibold text-slate-900 truncate block">{a.CONTRATO}</span>
-                            <span className="text-[10px] text-slate-400 truncate block">{a.SEGMENTO || '—'}</span>
-                          </div>
-                        </div>
+                        ) : <span className="text-xs text-slate-300">—</span>}
                       </td>
-                      <td className="px-4 py-3">
-                        <span className="text-sm font-semibold text-slate-900">{a.LOTE || '—'}</span>
-                      </td>
-                      <td className="px-4 py-3"><span className="text-xs text-slate-600 font-mono">{a.N_DO_ADITIVO ? a.N_DO_ADITIVO.split(' ')[0] : '—'}</span></td>
                       <td className="px-4 py-3">
                         <span className="inline-flex items-center gap-1.5 text-xs text-slate-600 font-medium">
                           <Calendar size={12} className="text-slate-400" />
@@ -470,7 +466,7 @@ const Apostilas = () => {
       <ExportDialog
         open={exportOpen}
         onClose={() => setExportOpen(false)}
-        data={apostilas}
+        data={exportData}
         columns={exportColumns}
         formatters={{
           VALOR_DA_APOSTILA: formatCurrency,

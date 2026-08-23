@@ -1,0 +1,21 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "baiai": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "B.AI",
+      "options": {
+        "name": "B.AI",
+        "baseURL": "https://api.b.ai/v1",
+        "apiKey": "sk-15opvb5tkvrbszlkky8u6fhywhvty36r"
+      },
+      "models": {
+        "deepseek-v4-flash": {
+          "name": "DeepSeek V4 Flash"
+        }
+      }
+    }
+  },
+  "model": "baiai/deepseek-v4-flash",
+  "small_model": "baiai/deepseek-v4-flash"
+}

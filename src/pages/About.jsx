@@ -45,9 +45,7 @@ const About = () => {
 
         {/* Header */}
         <div className="flex items-center gap-4 mb-6 pb-6 border-b border-slate-100">
-          <div className="w-12 h-12 rounded-xl bg-emerald-600 flex items-center justify-center shadow-sm">
-            <span className="text-white font-black text-xl tracking-tight">D</span>
-          </div>
+        <img src="/icone_gestao_dma.png" alt="Gestão DMA" className="w-12 h-12 object-contain shrink-0" />
           <div>
             <h1 className="text-base font-bold text-slate-900 leading-tight">Gestão DMA Analytics</h1>
             <p className="text-xs text-slate-400 mt-0.5">Monitoramento de contratos · Gestão DMA</p>

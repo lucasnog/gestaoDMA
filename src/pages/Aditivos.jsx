@@ -33,7 +33,7 @@ const TIPO_CORES = {
 };
 
 const Aditivos = () => {
-  const { selectedBlocos, selectedSegmentos, search, contratos, customDateStart, customDateEnd, selectedPeriod } = useDashboardContext();
+  const { selectedBlocos = [], selectedSegmentos = [], search, contratos, customDateStart, customDateEnd, selectedPeriod } = useDashboardContext();
   const [allAditivos, setAllAditivos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [tipoFilter, setTipoFilter] = useState([]); // [] = todos
@@ -116,12 +116,9 @@ const Aditivos = () => {
   }
 
   const exportColumns = useMemo(() => [
-    { key: 'BLOCO_NORM', label: 'Bloco' },
-    { key: 'CONTRATO', label: 'Contrato' },
-    { key: 'LOTE', label: 'Lote' },
-    { key: 'EMPRESA', label: 'Empresa' },
-    { key: 'TIPO_DO_ADITIVO', label: 'Tipo' },
     { key: 'N_DO_ADITIVO', label: 'Nº do Aditivo' },
+    { key: 'SEI', label: 'SEI' },
+    { key: 'TIPO_DO_ADITIVO', label: 'Tipo' },
     { key: 'DATA_DA_ASSINATURA', label: 'Data da Assinatura' },
     { key: 'VALOR_DO_ADITIVO', label: 'Valor do Aditivo' },
     { key: 'OBJETO', label: 'Objeto' },
@@ -266,6 +263,13 @@ const Aditivos = () => {
   const safePage = Math.min(page, totalPages);
   const pagedData = sortedAditivos.slice((safePage - 1) * itemsPerPage, safePage * itemsPerPage);
 
+  const exportData = useMemo(() => {
+    return aditivos.map((a) => {
+      const seiMatch = (a.N_DO_ADITIVO || '').match(/\(([^)]+)\)/);
+      return { ...a, SEI: seiMatch ? seiMatch[1] : '' };
+    });
+  }, [aditivos]);
+
   const kpis = useMemo(() => {
     if (!aditivos.length) return null;
     const totalContratos = new Set(aditivos.map(a => a.CONTRATO)).size;
@@ -322,12 +326,12 @@ const Aditivos = () => {
           <p className="text-xs sm:text-sm text-slate-400 mt-0.5 sm:mt-1">Readequações, reequilíbrios e aditivos contratuais</p>
         </div>
         <div className="flex items-center gap-2 sm:gap-3 flex-wrap shrink-0">
-          {tipoFilter && (
+          {tipoFilter.length > 0 && (
             <button
-              onClick={() => setTipoFilter(null)}
+              onClick={() => setTipoFilter([])}
               className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg bg-emerald-600/10 text-emerald-600 border border-emerald-600/20 text-[10px] sm:text-[11px] font-semibold hover:bg-emerald-600/20 transition-colors"
             >
-              {tipoFilter}
+              {tipoFilter.join(', ')}
               <span className="text-[9px]">x</span>
             </button>
           )}
@@ -340,9 +344,9 @@ const Aditivos = () => {
               <span className="text-[9px]">x</span>
             </button>
           )}
-          {(tipoFilter || selectedPeriodo) && (
+          {(tipoFilter.length > 0 || selectedPeriodo) && (
             <button
-              onClick={() => { setTipoFilter(null); setSelectedPeriodo(null); }}
+              onClick={() => { setTipoFilter([]); setSelectedPeriodo(null); }}
               className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-[11px] font-semibold text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
             >
               Limpar filtros
@@ -535,20 +539,14 @@ const Aditivos = () => {
                 <th className="px-3 py-3 w-8">
                   <input type="checkbox" checked={selectedIds.length > 0 && selectedIds.length === sortedAditivos.length} onChange={toggleSelectAll} className="w-3.5 h-3.5 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer" />
                 </th>
+                <th onClick={() => handleSort('N_DO_ADITIVO')} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none">
+                  N&deg; do Aditivo{sortConfig.key === 'N_DO_ADITIVO' ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
+                </th>
                 <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-                  Contrato
-                </th>
-                <th onClick={() => handleSort('LOTE')} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none">
-                  Lote{sortConfig.key === 'LOTE' ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
-                </th>
-                <th onClick={() => handleSort('EMPRESA')} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none">
-                  Empresa{sortConfig.key === 'EMPRESA' ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
+                  SEI
                 </th>
                 <th onClick={() => handleSort('TIPO_DO_ADITIVO')} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none">
                   Tipo{sortConfig.key === 'TIPO_DO_ADITIVO' ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
-                </th>
-                <th onClick={() => handleSort('N_DO_ADITIVO')} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none">
-                  N&deg; do Aditivo{sortConfig.key === 'N_DO_ADITIVO' ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
                 </th>
                 <th onClick={() => handleSort('DATA_DA_ASSINATURA')} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none">
                   Data{sortConfig.key === 'DATA_DA_ASSINATURA' ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
@@ -563,19 +561,16 @@ const Aditivos = () => {
                 [...Array(5)].map((_, i) => (
                   <tr key={i}>
                     <td className="px-3 py-3"><Skeleton className="h-4 w-4" /></td>
-                    <td className="px-4 py-3"><Skeleton className="h-6 w-40" /></td>
-                    <td className="px-4 py-3"><Skeleton className="h-6 w-12" /></td>
-                    <td className="px-4 py-3"><Skeleton className="h-6 w-36" /></td>
-                    <td className="px-4 py-3"><Skeleton className="h-6 w-20" /></td>
                     <td className="px-4 py-3"><Skeleton className="h-6 w-28" /></td>
                     <td className="px-4 py-3"><Skeleton className="h-6 w-20" /></td>
+                    <td className="px-4 py-3"><Skeleton className="h-6 w-20" /></td>
+                    <td className="px-4 py-3"><Skeleton className="h-6 w-20" /></td>
                     <td className="px-4 py-3"><Skeleton className="h-6 w-24" /></td>
-                    <td className="px-4 py-3"><Skeleton className="h-6 w-8 ml-auto" /></td>
                   </tr>
                 ))
               ) : pagedData.length === 0 ? (
                 <tr>
-                  <td colSpan="8" className="px-6 py-20 text-center">
+                  <td colSpan="6" className="px-6 py-20 text-center">
                     <FileText size={40} className="mx-auto text-emerald-200 mb-4" strokeWidth={1.5} />
                     <p className="text-sm font-medium text-slate-400">Nenhum aditivo encontrado</p>
                     <p className="text-xs text-slate-300 mt-1">Tente ajustar os filtros</p>
@@ -586,25 +581,23 @@ const Aditivos = () => {
                   const valor = parseFloat(a.VALOR_DO_ADITIVO) || 0;
                   const valorApostila = parseFloat(a.VALOR_DA_APOSTILA) || 0;
                   const valorExibir = valor || valorApostila;
+                  const seiMatch = (a.N_DO_ADITIVO || '').match(/\(([^)]+)\)/);
+                  const sei = seiMatch ? seiMatch[1] : '';
                   return (
                     <tr key={`${a.CONTRATO}-${a.N_DO_ADITIVO}-${idx}`} onClick={() => setSelectedContratoId(buildContratoId(a))} className="group cursor-pointer transition-all duration-200 hover:bg-emerald-50/40">
                       <td className="px-3 py-3 w-8" onClick={function(e) { e.stopPropagation(); }}>
                         <input type="checkbox" checked={selectedIds.includes(getAditivoId(a))} onChange={function() { toggleSelect(getAditivoId(a)); }} className="w-3.5 h-3.5 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer" />
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 border border-emerald-100/50 text-[11px] font-semibold text-emerald-700">
-                            {a.BLOCO_NORM || a.BLOCO?.replace('Bloco ', '')}
+                      <td className="px-4 py-3"><span className="text-sm font-semibold text-slate-900">{a.N_DO_ADITIVO ? a.N_DO_ADITIVO.split(' ')[0] : '—'}</span></td>
+                      <td className="px-4 py-3" onClick={function(e) { e.stopPropagation(); }}>
+                        {sei ? (
+                          <span className="inline-flex items-center gap-1.5 text-xs text-slate-600 font-medium cursor-pointer hover:text-emerald-600 transition-colors" onClick={function(e) { e.stopPropagation(); navigator.clipboard.writeText(sei); }} title="Copiar número SEI">
+                            <FileText size={12} className="text-slate-400" />
+                            {sei}
                           </span>
-                          <span className="text-sm font-semibold text-slate-900 truncate">{a.CONTRATO}</span>
-                        </div>
+                        ) : <span className="text-xs text-slate-300">—</span>}
                       </td>
-                      <td className="px-4 py-3">
-                        <span className="text-sm font-semibold text-slate-900">{a.LOTE || '—'}</span>
-                      </td>
-                      <td className="px-4 py-3 max-w-[180px]"><p className="text-sm text-slate-700 truncate">{a.EMPRESA || '—'}</p></td>
                       <td className="px-4 py-3"><Badge className={getTipoColor(a.TIPO_DO_ADITIVO)}>{a.TIPO_DO_ADITIVO}</Badge></td>
-                      <td className="px-4 py-3"><span className="text-xs text-slate-600 font-mono">{a.N_DO_ADITIVO ? a.N_DO_ADITIVO.split(' ')[0] : '—'}</span></td>
                       <td className="px-4 py-3">
                         <span className="inline-flex items-center gap-1.5 text-xs text-slate-600 font-medium">
                           <Calendar size={12} className="text-slate-400" />
@@ -636,7 +629,7 @@ const Aditivos = () => {
       <ExportDialog
         open={exportOpen}
         onClose={() => setExportOpen(false)}
-        data={aditivos}
+        data={exportData}
         columns={exportColumns}
         formatters={{
           VALOR_DO_ADITIVO: formatCurrency,

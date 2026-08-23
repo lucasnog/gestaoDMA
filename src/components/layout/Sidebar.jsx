@@ -76,15 +76,16 @@ const Sidebar = ({ contractsAlertCount = 0, isOpen, onClose }) => {
     return userPermissoes.includes(path);
   };
 
+  // Menu admin — aparece se for admin OU emails autorizados
+  const isOwner =
+    user?.email &&
+    (user.email.includes("lucasnog") || user.email.includes("goinfra") || user.email.includes("tati.souza02"));
+
   const supportMenu = [
     // { path: '/relatorios', label: 'Relatórios', icon: ShieldCheck },
     { path: "/sobre", label: "Sobre", icon: Info },
   ];
 
-  // Menu admin — aparece se for admin OU emails autorizados
-  const isOwner =
-    user?.email &&
-    (user.email.includes("lucasnog") || user.email.includes("goinfra") || user.email.includes("tati.souza02"));
   const adminMenu =
     isAdmin() || isOwner
       ? [{ path: "/admin", label: "Administração", icon: Shield }]
