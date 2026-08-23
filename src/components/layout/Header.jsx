@@ -82,41 +82,41 @@ const Header = ({ onMenuToggle = () => {}, contratoAlvo }) => {
 
   return (
     <header className="relative z-[999]">
-      {/* ── Mobile Layout: botão compacto com toggle ── */}
-      <div className="flex lg:hidden items-center justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
+      {/* ── Layout único: Banner sempre visível + Acordeon (mobile e desktop) ── */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          {/* Menu mobile */}
           <button
             onClick={onMenuToggle}
-            className="p-2 rounded-xl bg-emerald-50 border border-emerald-100/60 text-emerald-600 hover:bg-emerald-100 transition-colors shrink-0"
+            className="lg:hidden p-2 rounded-xl bg-emerald-50 border border-emerald-100/60 text-emerald-600 hover:bg-emerald-100 transition-colors shrink-0"
             aria-label="Abrir menu"
           >
             <Menu size={20} strokeWidth={2} />
           </button>
-          <button
-            onClick={() => setAccordionOpen(!accordionOpen)}
-            className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl border bg-emerald-700 text-white border-emerald-600 shadow-sm min-w-0"
-          >
-            <span className="text-xs font-bold truncate">Contrato {contratoCode}</span>
-            {accordionOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-          </button>
+          {/* Banner */}
+          <div className="flex-1 min-w-0">
+            <BannerContent
+              contratoCode={contratoCode}
+              empresaNome={empresaNome}
+              dsObjeto={dsObjeto}
+              numSmo={numSmo}
+              onViewFull={() => setShowFullDrawer(true)}
+              onClose={null}
+              accordionOpen={accordionOpen}
+              onToggleAccordion={() => setAccordionOpen(!accordionOpen)}
+            />
+          </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        {/* Notif + User */}
+        <div className="flex items-center gap-3 shrink-0 mt-1">
           <NotificationBell />
           <UserMenu />
         </div>
       </div>
 
-      {/* Mobile Accordion */}
+      {/* Acordeon de Detalhes */}
       {accordionOpen && (
-        <div className="lg:hidden mt-2 rounded-xl border border-emerald-200/80 shadow-lg overflow-hidden">
-          <BannerContent
-            contratoCode={contratoCode}
-            empresaNome={empresaNome}
-            dsObjeto={dsObjeto}
-            numSmo={numSmo}
-            onViewFull={() => setShowFullDrawer(true)}
-            onClose={() => setAccordionOpen(false)}
-          />
+        <div className="mt-2 rounded-xl border border-emerald-200/60 shadow-lg overflow-hidden">
           <AccordionDetails
             numProcesso={numProcesso}
             empresaNome={empresaNome}
@@ -134,51 +134,6 @@ const Header = ({ onMenuToggle = () => {}, contratoAlvo }) => {
           />
         </div>
       )}
-
-      {/* ── Desktop Layout: Banner sempre visível + Acordeon ── */}
-      <div className="hidden lg:block">
-        <div className="flex items-start justify-between gap-4">
-          {/* Banner Azul Sempre Aberto */}
-          <div className="flex-1 min-w-0">
-            <BannerContent
-              contratoCode={contratoCode}
-              empresaNome={empresaNome}
-              dsObjeto={dsObjeto}
-              numSmo={numSmo}
-              onViewFull={() => setShowFullDrawer(true)}
-              onClose={null}
-              accordionOpen={accordionOpen}
-              onToggleAccordion={() => setAccordionOpen(!accordionOpen)}
-            />
-          </div>
-          {/* Notif + User */}
-          <div className="flex items-center gap-3 shrink-0 mt-1">
-            <NotificationBell />
-            <UserMenu />
-          </div>
-        </div>
-
-        {/* Acordeon de Detalhes — Desktop */}
-        {accordionOpen && (
-          <div className="mt-2 rounded-xl border border-emerald-200/60 shadow-lg overflow-hidden">
-            <AccordionDetails
-              numProcesso={numProcesso}
-              empresaNome={empresaNome}
-              modalidade={modalidade}
-              dtInicio={dtInicio}
-              dtFim={dtFim}
-              remainingDays={remainingDays}
-              percTime={percTime}
-              valorTotal={valorTotal}
-              valorMedido={valorMedido}
-              saldo={saldo}
-              percFinanceiro={percFinanceiro}
-              copiedField={copiedField}
-              handleCopy={handleCopy}
-            />
-          </div>
-        )}
-      </div>
 
       {/* Drawer completo sob demanda */}
       <ContractDetail
