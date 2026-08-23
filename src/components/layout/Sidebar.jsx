@@ -68,13 +68,7 @@ const Sidebar = ({ contractsAlertCount = 0, isOpen, onClose }) => {
 
   const { user, isAdmin, logout } = useAuthStore();
 
-  const userPermissoes = user?.permissoes;
-
-  const podeAcessar = (path) => {
-    if (isAdmin()) return true;
-    if (!userPermissoes || userPermissoes.length === 0) return false;
-    return userPermissoes.includes(path);
-  };
+  const podeAcessar = () => true;
 
   // Menu admin — aparece se for admin OU emails autorizados
   const isOwner =
