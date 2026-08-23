@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import {
   X,
   FileText,
@@ -274,15 +275,15 @@ const ContractDetail = ({ contratoId, onClose }) => {
     }
   }
 
-  return (
-    <div className="fixed inset-0 z-[9999] flex justify-end">
+  return createPortal(
+    <div className="fixed inset-0 z-[99999] flex justify-end">
       {/* Overlay */}
       <div
         className="absolute inset-0 bg-slate-900/30 backdrop-blur-sm"
         onClick={onClose}
       />
 
-      <aside className="relative w-full max-w-4xl bg-white h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+      <aside className="relative w-full max-w-4xl bg-white h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300 z-10">
         {/* Header */}
         <header className="shrink-0 px-4 sm:px-6 md:px-8 py-4 sm:py-6 border-b border-emerald-100/50 flex items-center justify-between bg-white">
           <div className="flex items-center gap-3 sm:gap-5 min-w-0">
@@ -1755,7 +1756,8 @@ const ContractDetail = ({ contratoId, onClose }) => {
           )}
         </div>
       </aside>
-    </div>
+    </div>,
+    document.body
   );
 };
 
