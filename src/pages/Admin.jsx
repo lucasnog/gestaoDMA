@@ -284,11 +284,6 @@ const Admin = () => {
         </Card>
       )}
 
-      {/* ─── Monitor SEI ─────────── */}
-      {(user?.email === 'lucas.nlopes04@gmail.com' || user?.email === 'ingcrispere94@gmail.com' || user?.email === 'tati.souza02.ts@gmail.com') && (
-        <MonitorStatus />
-      )}
-
       {/* ─── Informações do servidor ─────────── */}
       {(user?.email === 'lucas.nlopes04@gmail.com' || user?.email === 'ingcrispere94@gmail.com' || user?.email === 'tati.souza02.ts@gmail.com') && (
         <ServerInfo token={token} />
