@@ -194,7 +194,6 @@ const detailMap = React.useMemo(() => {
   const exportColumns = useMemo(function() {
     return [
       { key: 'nr_medicao', label: 'Nº Medição' },
-      { key: 'descricao', label: 'Descrição' },
       { key: 'dt_medicao', label: 'Data Medição' },
       { key: 'dt_periodo_inicio', label: 'Início Período' },
       { key: 'dt_periodo_fim', label: 'Fim Período' },
@@ -421,7 +420,6 @@ const detailMap = React.useMemo(() => {
   const exportData = React.useMemo(() => {
     return sortedMedicoes.map((m) => ({
       nr_medicao: m.nr_medicao,
-      descricao: m.descricao,
       dt_medicao: m.dt_medicao,
       dt_periodo_inicio: m.dt_periodo_inicio,
       dt_periodo_fim: m.dt_periodo_fim,
@@ -613,9 +611,6 @@ const detailMap = React.useMemo(() => {
                 <th onClick={() => handleSort('nr_medicao')} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none w-16">
                   Nº{sortConfig.key === 'nr_medicao' ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
                 </th>
-                <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-                  Descrição
-                </th>
                 <th onClick={() => handleSort('dt_medicao')} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none">
                   Data Medição{sortConfig.key === 'dt_medicao' ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
                 </th>
@@ -637,16 +632,16 @@ const detailMap = React.useMemo(() => {
               {medicoesLoading ? (
                 [...Array(6)].map((_, i) => (
                   <tr key={i}>
-                    {[...Array(7)].map((_, j) => (
+                    {[...Array(6)].map((_, j) => (
                       <td key={j} className="px-4 py-3">
-                        <Skeleton className={`h-6 ${j === 0 ? 'w-10' : j === 1 ? 'w-48' : 'w-20'}`} />
+                        <Skeleton className={`h-6 ${j === 0 ? 'w-10' : 'w-20'}`} />
                       </td>
                     ))}
                   </tr>
                 ))
               ) : pagedMedicoes.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="px-6 py-20 text-center">
+                  <td colSpan="6" className="px-6 py-20 text-center">
                     <FileText size={40} className="mx-auto text-emerald-200 mb-4" strokeWidth={1.5} />
                     <p className="text-sm font-medium text-slate-400">Nenhuma medição encontrada</p>
                     <p className="text-xs text-slate-300 mt-1">Tente ajustar os filtros no painel principal</p>
@@ -667,9 +662,6 @@ const detailMap = React.useMemo(() => {
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 border border-emerald-100/50 text-[11px] font-semibold text-emerald-700">
                           {m.nr_medicao ? `${m.nr_medicao}ª` : '—'}
                         </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="text-sm font-semibold text-slate-900">{m.descricao || '—'}</span>
                       </td>
                       <td className="px-4 py-3">
                         <span className="text-sm text-slate-700">{m.dt_medicao ? formatDate(m.dt_medicao) : '—'}</span>
