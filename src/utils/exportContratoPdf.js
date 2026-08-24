@@ -171,9 +171,11 @@ function prepareLogo(img) {
   return { canvas: crop, w: crop.width, h: crop.height };
 }
 
-async function drawHeader(doc, logo) {
+async function drawHeader(doc, logo, geradoEm) {
   const H = 34;
-  gradientRect(doc, 0, 0, PAGE_W, H, BLUE_500, BLUE_800, 20);
+  // fundo azul escuro sólido
+  doc.setFillColor(...BLUE_700);
+  doc.rect(0, 0, PAGE_W, H, "F");
   // linha de destaque na base do header
   doc.setFillColor(...BLUE_100);
   doc.rect(0, H, PAGE_W, 0.8, "F");
@@ -192,24 +194,18 @@ async function drawHeader(doc, logo) {
       const lx = 16;
       const ly = (H - logoH) / 2;
       doc.addImage(prep.canvas, "PNG", lx, ly, logoW, logoH);
-      tx = lx + logoW + 7;
+      tx = lx + logoW + 12;
     }
   }
 
+  // Bloco de texto centralizado verticalmente em relação à logo (meio do header)
   doc.setFont("helvetica", "bold");
   doc.setFontSize(14);
   doc.setTextColor(...WHITE);
-  doc.text("Gestão DMA Analytics", tx, 15);
+  doc.text("Gestão DMA Analytics", tx, 15.7);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9.5);
-  doc.text("Relatório de Detalhes do Contrato — Gestão DMA", tx, 22);
-
-  const geradoEm = new Intl.DateTimeFormat("pt-BR", {
-    dateStyle: "short",
-    timeStyle: "short",
-  }).format(new Date());
-  doc.setFontSize(8);
-  doc.text(`Gerado em ${geradoEm}`, PAGE_W - MARGIN, 15, { align: "right" });
+  doc.text("Relatório de Detalhes do Contrato", tx, 21.7);
 }
 
 function sectionTitle(doc, y, title) {
@@ -348,7 +344,6 @@ export async function exportContratoPdf({ details, gemocdocs, municipiosGmp }) {
 
   const contratoNum = details?.cd_contrato || gc?.CONTRATO || "";
   const lote = gc?.LOTE;
-  const bloco = details?.nu_bloco || gc?.BLOCO || "";
   const status = gs?.STATUS_CONTRATO || details?.situacao_atual || "";
   const segmento = gc?.SEGMENTO || details?.segmento || "";
   const processo = cleanNumberSuffix(gc?.PROCESSO_CONTRATO) || "";
@@ -358,10 +353,15 @@ export async function exportContratoPdf({ details, gemocdocs, municipiosGmp }) {
 
   const logo = await loadLogo();
 
+  const geradoEm = new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+  }).format(new Date());
+
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
 
   // ── Cabeçalho com logo ─────────────────────────────────────
-  await drawHeader(doc, logo);
+  await drawHeader(doc, logo, geradoEm);
 
   // ── Identificação do contrato ──────────────────────────────
   let y = 34 + 0.8 + 12;
@@ -369,21 +369,18 @@ export async function exportContratoPdf({ details, gemocdocs, municipiosGmp }) {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(16);
   doc.setTextColor(...SLATE_DARK);
-  const titulo = `Contrato ${contratoNum}${lote ? ` — Lote ${lote}` : ""}${bloco ? ` — Bloco ${bloco}` : ""}`;
+  const titulo = `Contrato ${contratoNum}${lote ? ` — Lote ${lote}` : ""}`;
   const tituloLines = doc.splitTextToSize(titulo, CONTENT_W);
   doc.text(tituloLines, MARGIN, y);
   y += tituloLines.length * 5.5 + 2;
 
   if (status) {
     const statusLabel = normStatus(status);
-    doc.setFillColor(...BLUE_50);
-    doc.setDrawColor(...BLUE_600);
-    const sw = doc.getTextWidth(statusLabel) + 7;
-    doc.roundedRect(MARGIN, y - 3.4, sw, 6.4, 2, 2, "FD");
+    doc.setFont("helvetica", "bold");
     doc.setFontSize(8.5);
     doc.setTextColor(...BLUE_700);
-    doc.text(statusLabel, MARGIN + 3.5, y + 0.6);
-    y += 6;
+    doc.text(statusLabel, MARGIN, y);
+    y += 5;
   }
 
   doc.setFont("helvetica", "normal");
@@ -708,7 +705,11 @@ export async function exportContratoPdf({ details, gemocdocs, municipiosGmp }) {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7.5);
     doc.setTextColor(...SLATE);
-    doc.text("Gestão DMA Analytics — Detalhes do Contrato", MARGIN, 293.5);
+    doc.text(
+      `Gestão DMA Analytics — Detalhes do Contrato — Gerado em ${geradoEm}`,
+      MARGIN,
+      293.5,
+    );
     doc.text(`Página ${i} de ${pages}`, PAGE_W - MARGIN, 293.5, { align: "right" });
   }
 
