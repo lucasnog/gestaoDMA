@@ -31,6 +31,70 @@ const FOOTER_Y = 280;
 const v = (x) =>
   x === null || x === undefined || x === "" ? "—" : x;
 
+/**
+ * Extrai apenas o número da OS do SEI (ex: "94/2023 (48712027)" → "94/2023").
+ */
+function numeroOsSei(sei) {
+  const idx = String(sei || "").indexOf(" - ");
+  const parte = idx >= 0 ? String(sei).substring(0, idx) : String(sei || "");
+  return v(parte.trim());
+}
+
+/**
+ * Detalhe específico de uma OS: trecho após " - " no OS_SEI
+ * (ex: "69/2024 (66606166) - Paralisação do Produto 4" → "Paralisação do Produto 4").
+ * Sem detalhe no SEI, usa o OBJETO completo (sem truncar).
+ */
+function osDetalhe(os) {
+  const sei = String(os.OS_SEI || "");
+  const idx = sei.indexOf(" - ");
+  if (idx >= 0) {
+    const det = sei.substring(idx + 3).trim();
+    if (det) return det;
+  }
+  return v((os.OBJETO || "").trim());
+}
+
+/**
+ * Agrupa gestores/fiscais por portaria, retornando [portaria, nomes[]].
+ */
+function gruposPorPortaria(lista) {
+  const grupos = new Map();
+  for (const p of lista) {
+    if (!p?.NOME) continue;
+    const port = v(p.PORTARIA_SEI);
+    if (!grupos.has(port)) grupos.set(port, []);
+    if (!grupos.get(port).includes(p.NOME)) grupos.get(port).push(p.NOME);
+  }
+  return [...grupos.entries()];
+}
+
+/**
+ * Gera o rótulo do gestor/fiscal com a portaria na frente.
+ * Ex: "Gestor (portaria 145/2026 91231238)".
+ */
+function portariaLabel(tipo, port) {
+  const s = String(port || "");
+  const num = (s.match(/(\d+\/\d+)/) || [])[1];
+  const sei = (s.match(/\((\d+)\)/) || [])[1];
+  const base = `Portaria ${num || "—"}`;
+  return `${tipo} (${sei ? `${base} ${sei}` : base})`;
+}
+
+/**
+ * Normaliza rótulos de status para o padrão exibido nas tabelas:
+ * "Andamento" → "EM ANDAMENTO", "Paralisado" → "PARALISADO".
+ */
+function normStatus(val) {
+  const s = String(val || "").trim();
+  if (!s) return "—";
+  const lower = s.toLowerCase();
+  if (lower.includes("andament")) return "EM ANDAMENTO";
+  if (lower.includes("paralis")) return "PARALISADO";
+  if (lower.includes("conclu")) return "CONCLUÍDO";
+  return s;
+}
+
 function ensurePage(doc, y, needed = 20) {
   if (y + needed > FOOTER_Y) {
     doc.addPage();
@@ -89,16 +153,22 @@ function prepareLogo(img) {
   if (maxX < 0) return null;
   const cw = maxX - minX;
   const chh = maxY - minY;
+  const pad = 14; // folga ao redor para a sombra não ser cortada
   const crop = document.createElement("canvas");
-  crop.width = cw;
-  crop.height = chh;
+  crop.width = cw + pad * 2;
+  crop.height = chh + pad * 2;
   const cropCtx = crop.getContext("2d");
-  // sombra branca contornando a logo (mesmo drop-shadow da Sidebar)
-  cropCtx.filter =
-    "drop-shadow(0 0 1.5px #ffffff) drop-shadow(0 0 1.5px #ffffff) drop-shadow(0 0 1.5px #ffffff)";
-  cropCtx.drawImage(img, minX, minY, cw, chh, 0, 0, cw, chh);
+  // sombra contornando a logo: sombra profunda em tom azul (profundidade) + glow branco
+  cropCtx.filter = [
+    "drop-shadow(1.5px 2.5px 3px rgba(15, 23, 42, 0.55))",
+    "drop-shadow(0 0 1px rgba(255,255,255,0.95))",
+    "drop-shadow(0 0 2px rgba(255,255,255,0.9))",
+    "drop-shadow(0 0 3px rgba(255,255,255,0.85))",
+    "drop-shadow(0 0 4px rgba(255,255,255,0.7))",
+  ].join(" ");
+  cropCtx.drawImage(img, minX, minY, cw, chh, pad, pad, cw, chh);
   cropCtx.filter = "none";
-  return { canvas: crop, w: cw, h: chh };
+  return { canvas: crop, w: crop.width, h: crop.height };
 }
 
 async function drawHeader(doc, logo) {
@@ -305,13 +375,14 @@ export async function exportContratoPdf({ details, gemocdocs, municipiosGmp }) {
   y += tituloLines.length * 5.5 + 2;
 
   if (status) {
+    const statusLabel = normStatus(status);
     doc.setFillColor(...BLUE_50);
     doc.setDrawColor(...BLUE_600);
-    const sw = doc.getTextWidth(status) + 7;
+    const sw = doc.getTextWidth(statusLabel) + 7;
     doc.roundedRect(MARGIN, y - 3.4, sw, 6.4, 2, 2, "FD");
     doc.setFontSize(8.5);
     doc.setTextColor(...BLUE_700);
-    doc.text(status, MARGIN + 3.5, y + 0.6);
+    doc.text(statusLabel, MARGIN + 3.5, y + 0.6);
     y += 6;
   }
 
@@ -449,7 +520,7 @@ export async function exportContratoPdf({ details, gemocdocs, municipiosGmp }) {
     y = kvTable(doc, y, [
       ["Situação Vigência", cleanNumberSuffix(gs?.STATUS_VIGENCIA)],
       ["Situação Execução", cleanNumberSuffix(gs?.STATUS_EXECUCAO)],
-      ["Situação Contrato", gs?.STATUS_CONTRATO],
+      ["Situação Contrato", normStatus(gs?.STATUS_CONTRATO)],
       ...(gs?.DIAS_PARALISADOS && cleanNumberSuffix(gs.DIAS_PARALISADOS) !== "0"
         ? [["Dias Paralisados", `${cleanNumberSuffix(gs.DIAS_PARALISADOS)} dias`]]
         : []),
@@ -458,10 +529,37 @@ export async function exportContratoPdf({ details, gemocdocs, municipiosGmp }) {
   }
 
   // ── Gestão do Contrato ─────────────────────────────────────
+  // Apenas gestores/fiscais ativos (ou últimos ativos quando o contrato já finalizou)
+  const gestores = gemocdocs?.gestores || [];
+  const hoje = new Date().toISOString().split("T")[0];
+  const ativos =
+    gestores.filter(
+      (g) => !g.DATA_FINAL || g.DATA_FINAL.trim() === "" || g.DATA_FINAL >= hoje,
+    ) || [];
+  let gestoresExibir = ativos;
+  if (ativos.length === 0 && gestores.length > 0) {
+    const maxDate = gestores.reduce(
+      (max, g) => ((g.DATA_INICIAL || "") > max ? g.DATA_INICIAL || "" : max),
+      "",
+    );
+    gestoresExibir = gestores.filter((g) => (g.DATA_INICIAL || "") === maxDate);
+  }
+  const pessoasGestores = gestoresExibir.filter((g) =>
+    (g.TIPO || "").toLowerCase().includes("gestor"),
+  );
+  const pessoasFiscais = gestoresExibir.filter((g) =>
+    (g.TIPO || "").toLowerCase().includes("fiscal"),
+  );
+
+  const linhasGestores = gruposPorPortaria(pessoasGestores).map(
+    ([port, nomes]) => [portariaLabel("Gestor", port), nomes.join(", ")],
+  );
+  const linhasFiscais = gruposPorPortaria(pessoasFiscais).map(
+    ([port, nomes]) => [portariaLabel("Fiscal Técnico", port), nomes.join(", ")],
+  );
+
   y = sectionTitle(doc, y, "Gestão do Contrato");
   y = kvTable(doc, y, [
-    ["Gestor", gemocdocs?.gestorNome],
-    ["Fiscal Técnico", gemocdocs?.fiscalNome],
     ["Total Pago (SMO)", formatCurrency(details?.vl_total_pago)],
     ["Total Empenhado (SMO)", formatCurrency(details?.vl_total_empenhado)],
     ["Doc. SEI", gc?.DOCUMENTO_SEI_CONTRATO],
@@ -470,6 +568,8 @@ export async function exportContratoPdf({ details, gemocdocs, municipiosGmp }) {
     ["Lote", gc?.LOTE],
     ["Valor Inicial", formatCurrency(gc?.VALOR_INICIAL_DO_CONTRATO)],
     ["OS Início", formatDate(details?.dt_os_inicio)],
+    ...linhasGestores,
+    ...linhasFiscais,
   ]);
   y += 6;
 
@@ -491,7 +591,7 @@ export async function exportContratoPdf({ details, gemocdocs, municipiosGmp }) {
         const trpTrd = r.TRP_DATA || r.TRD_DATA || null;
         return [
           cidade,
-          r.STATUS_CONTRATO || "—",
+          normStatus(r.STATUS_CONTRATO),
           trpTrd ? formatDate(trpTrd) : "—",
           r.OBSERVACOES || "—",
         ];
@@ -517,7 +617,7 @@ export async function exportContratoPdf({ details, gemocdocs, municipiosGmp }) {
     y = sectionTitle(doc, y, "Municípios GMP");
     y = renderTable(doc, y, {
       head: [["Município", "Status"]],
-      body: municipiosGmp.map((m) => [v(m.MUNICIPIO), v(m.STATUS)]),
+      body: municipiosGmp.map((m) => [v(m.MUNICIPIO), normStatus(m.STATUS)]),
       columnStyles: { 0: { cellWidth: 120 } },
     });
     y += 6;
@@ -552,12 +652,12 @@ export async function exportContratoPdf({ details, gemocdocs, municipiosGmp }) {
   if (ordensServico.length > 0) {
     y = sectionTitle(doc, y, "Ordens de Serviço");
     y = renderTable(doc, y, {
-      head: [["Tipo", "SEI", "Data", "Objeto"]],
+      head: [["Tipo", "SEI", "Data", "Detalhe"]],
       body: ordensServico.map((os) => [
         v(os.TIPO_DE_OS),
-        v(os.OS_SEI),
+        numeroOsSei(os.OS_SEI),
         formatDate(os.DATA_OS),
-        v(os.OBJETO),
+        osDetalhe(os),
       ]),
       columnStyles: {
         0: { cellWidth: 28, fontStyle: "bold" },
