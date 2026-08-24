@@ -122,7 +122,7 @@ const Empresas = () => {
     { key: 'objeto', label: 'Objeto' },
     { key: 'segmento', label: 'Segmento' },
     { key: 'situacao_atual', label: 'Status' },
-    { key: 'vl_total', label: 'Investimento' },
+    { key: 'vl_total', label: 'Valor do Contrato' },
     { key: 'vl_total_medido', label: 'Total Medido' },
     { key: 'perc_pago', label: 'Avanço Financeiro' },
   ], []);
@@ -384,7 +384,7 @@ const Empresas = () => {
                   <th onClick={() => handleSort('objeto')} className="px-4 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none">Objeto{sortArrow('objeto')}</th>
                   <th onClick={() => handleSort('segmento')} className="px-4 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none whitespace-nowrap">Segmento{sortArrow('segmento')}</th>
                   <th onClick={() => handleSort('situacao_atual')} className="px-4 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none whitespace-nowrap">Status{sortArrow('situacao_atual')}</th>
-                  <th onClick={() => handleSort('vl_total')} className="px-4 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none whitespace-nowrap text-right">Investimento{sortArrow('vl_total')}</th>
+                  <th onClick={() => handleSort('vl_total')} className="px-4 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none whitespace-nowrap text-right">Valor do Contrato{sortArrow('vl_total')}</th>
                   <th onClick={() => handleSort('vl_total_medido')} className="px-4 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none whitespace-nowrap text-right">Medido{sortArrow('vl_total_medido')}</th>
                   <th onClick={() => handleSort('perc_pago')} className="px-4 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none whitespace-nowrap text-right">% Exec.{sortArrow('perc_pago')}</th>
                   <th className="px-4 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap"></th>

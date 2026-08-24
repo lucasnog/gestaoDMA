@@ -580,7 +580,7 @@ const ContractDetail = ({ contratoId, onClose }) => {
                       strokeWidth={2}
                     />
                     <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-                      Investimento Total
+                      Valor do Contrato
                     </span>
                   </div>
                   <p className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight break-words">

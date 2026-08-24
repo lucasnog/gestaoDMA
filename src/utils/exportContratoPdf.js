@@ -422,7 +422,7 @@ export async function exportContratoPdf({ details, gemocdocs, municipiosGmp }) {
   // ── Cards financeiros ──────────────────────────────────────
   y = cardsRow(doc, y, [
     {
-      label: "Investimento Total",
+      label: "Valor do Contrato",
       value: formatCurrency(details?.vl_total),
       foot: "Valor atualizado",
       accent: BLUE_600,

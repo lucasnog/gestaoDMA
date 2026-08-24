@@ -73,7 +73,7 @@ const Contratos = () => {
     { key: 'razao_social', label: 'Empresa' },
     { key: 'municipios', label: 'Municípios' },
     { key: 'situacao_atual', label: 'Status' },
-    { key: 'vl_total', label: 'Investimento' },
+    { key: 'vl_total', label: 'Valor do Contrato' },
     { key: 'vl_total_medido', label: 'Total Medido' },
     { key: 'medido_2021', label: 'Medido 2021' },
     { key: 'medido_2022', label: 'Medido 2022' },
@@ -371,7 +371,7 @@ const Contratos = () => {
               <Card className="p-3 sm:p-4 border border-slate-100/80 shadow-sm">
                 <div className="flex items-center gap-2 mb-2">
                   <DollarSign size={13} className="text-emerald-500" strokeWidth={2} />
-                  <span className="text-[8px] sm:text-[9px] font-semibold text-slate-400 uppercase tracking-wider">Investimento Total</span>
+                  <span className="text-[8px] sm:text-[9px] font-semibold text-slate-400 uppercase tracking-wider">Valor do Contrato</span>
                 </div>
                 <p className="text-xs sm:text-sm lg:text-base font-bold text-slate-900 tracking-tight whitespace-nowrap">{formatCurrency(financialKpis.totalInvestimento)}</p>
                 <p className="text-[9px] sm:text-[10px] text-slate-400 mt-1">{financialKpis.total} contratos</p>
@@ -496,7 +496,7 @@ const Contratos = () => {
                   Objeto
                 </th>
                 <th onClick={() => handleSort('vl_total')} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none">
-                  Investimento{sortConfig.key === 'vl_total' ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
+                  Valor do Contrato{sortConfig.key === 'vl_total' ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
                 </th>
                 <th onClick={() => handleSort('perc_pago')} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-center">
                   Avanço Fin.{sortConfig.key === 'perc_pago' ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}

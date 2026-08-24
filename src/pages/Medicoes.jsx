@@ -350,7 +350,7 @@ const detailMap = React.useMemo(() => {
 
   const kpiCards = [
     {
-      label: 'Investimento Total',
+      label: 'Valor do Contrato',
       value: formatCurrency(kpiInvestido),
       icon: DollarSign,
       color: 'from-blue-600 to-blue-700',

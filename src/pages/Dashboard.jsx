@@ -65,7 +65,7 @@ const Dashboard = () => {
   // ─── KPI Cards ───────────────────────────────────────────────────────
   const kpiCards = useMemo(() => [
     {
-      label: 'Investimento Total',
+      label: 'Valor do Contrato',
       value: formatCurrencyShort(dashboardKpis.investido),
       icon: DollarSign,
       color: 'from-emerald-600 to-emerald-500',
