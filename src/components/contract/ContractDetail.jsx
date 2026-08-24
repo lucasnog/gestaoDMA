@@ -203,11 +203,12 @@ const ContractDetail = ({ contratoId, onClose }) => {
 
             const ativosOuFallback = ativos.length > 0 ? ativos : fallback;
 
-            const gestor = ativosOuFallback.find((g) =>
+            // Todos os gestores e fiscais técnicos atuais (não apenas o primeiro),
+            // pois um contrato pode ter vários ao mesmo tempo (ex: várias portarias).
+            const gestoresAtuais = ativosOuFallback.filter((g) =>
               g.TIPO?.toLowerCase().includes("gestor"),
             );
-            // Fiscal: quem é "Fiscal do contrato" OU "Gestor e Fiscal do Contrato"
-            const fiscal = ativosOuFallback.find((g) =>
+            const fiscaisAtuais = ativosOuFallback.filter((g) =>
               g.TIPO?.toLowerCase().includes("fiscal"),
             );
 
@@ -226,8 +227,16 @@ const ContractDetail = ({ contratoId, onClose }) => {
               aditivos,
               principal,
               ordensServico,
-              fiscalNome: fiscal?.NOME || null,
-              gestorNome: gestor?.NOME || null,
+              gestoresNome: [
+                ...new Set(
+                  gestoresAtuais.map((g) => g.NOME).filter(Boolean),
+                ),
+              ],
+              fiscaisNome: [
+                ...new Set(fiscaisAtuais.map((g) => g.NOME).filter(Boolean)),
+              ],
+              fiscalNome: fiscaisAtuais[0]?.NOME || null,
+              gestorNome: gestoresAtuais[0]?.NOME || null,
             });
           };
 
@@ -1018,19 +1027,19 @@ const ContractDetail = ({ contratoId, onClose }) => {
                       </Badge>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
-                      {gemocdocs?.gestorNome && (
+                      {gemocdocs?.gestoresNome?.length > 0 && (
                         <div>
-                          <span className="text-slate-400">Gestor:</span>
+                          <span className="text-slate-400">Gestor(es):</span>
                           <span className="font-medium text-slate-700 ml-1">
-                            {gemocdocs.gestorNome}
+                            {gemocdocs.gestoresNome.join(", ")}
                           </span>
                         </div>
                       )}
-                      {gemocdocs?.fiscalNome && (
+                      {gemocdocs?.fiscaisNome?.length > 0 && (
                         <div>
-                          <span className="text-slate-400">Fiscal:</span>
+                          <span className="text-slate-400">Fiscal(is):</span>
                           <span className="font-medium text-slate-700 ml-1">
-                            {gemocdocs.fiscalNome}
+                            {gemocdocs.fiscaisNome.join(", ")}
                           </span>
                         </div>
                       )}
@@ -1317,30 +1326,38 @@ const ContractDetail = ({ contratoId, onClose }) => {
                 icon={Building2}
                 title="Gestão do Contrato"
                 summary={
-                  [gemocdocs?.gestorNome, gemocdocs?.fiscalNome]
+                  [...(gemocdocs?.gestoresNome || []), ...(gemocdocs?.fiscaisNome || [])]
                     .filter(Boolean)
                     .join(" | ") || ""
                 }
               >
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                  {gemocdocs?.gestorNome && (
+                  {gemocdocs?.gestoresNome?.length > 0 && (
                     <div>
                       <span className="text-[10px] font-semibold text-slate-400 uppercase block mb-1">
-                        Gestor
+                        Gestor(es)
                       </span>
-                      <span className="font-bold text-emerald-600 block text-sm break-words">
-                        {gemocdocs.gestorNome}
-                      </span>
+                      <div className="space-y-0.5">
+                        {gemocdocs.gestoresNome.map((nome, i) => (
+                          <span key={i} className="font-bold text-emerald-600 block text-sm break-words">
+                            {nome}
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   )}
-                  {gemocdocs?.fiscalNome && (
+                  {gemocdocs?.fiscaisNome?.length > 0 && (
                     <div>
                       <span className="text-[10px] font-semibold text-slate-400 uppercase block mb-1">
-                        Fiscal Técnico
+                        Fiscal(is) Técnico(s)
                       </span>
-                      <span className="font-bold text-emerald-600 block text-sm break-words">
-                        {gemocdocs.fiscalNome}
-                      </span>
+                      <div className="space-y-0.5">
+                        {gemocdocs.fiscaisNome.map((nome, i) => (
+                          <span key={i} className="font-bold text-emerald-600 block text-sm break-words">
+                            {nome}
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   )}
 
