@@ -70,7 +70,8 @@ export const useAuthStore = create(
                     }
                     if (get().token) {
                         console.warn('[Auth] Token inválido/expirado — limpando estado');
-                        get().logout(); window.location.href = "/login";
+                        get().logout();
+                        window.dispatchEvent(new CustomEvent('auth:session-expired'));
                     }
                 } catch (err) {
                     console.warn('[Auth] checkSession: não foi possível verificar:', err.message);
@@ -274,7 +275,8 @@ export const useAuthStore = create(
 
                     if (!result.valid) {
                         console.warn('[Auth] ⚠️ Sessão expirou ou token inválido — fazendo logout');
-                        get().logout(); window.location.href = "/login";
+                        get().logout();
+                        window.dispatchEvent(new CustomEvent('auth:session-expired'));
                         return;
                     }
 

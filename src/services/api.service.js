@@ -103,7 +103,9 @@ api.interceptors.response.use(
             // Evita loop se ja estiver na pagina de login
             if (window.location.pathname !== '/login') {
                 localStorage.removeItem("sider-auth-storage");
-                window.location.href = "/login";
+                // Navegação suave via router (App.jsx) em vez de `window.location.href`,
+                // que derrubava a árvore DOM no meio do commit do React (crash "insertBefore").
+                window.dispatchEvent(new CustomEvent('auth:session-expired'));
             }
         }
         return Promise.reject(error);

@@ -17,13 +17,14 @@ import PendingApproval from './pages/PendingApproval';
 import Admin from './pages/Admin';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import Toast from './components/ui/Toast';
+import { RouteErrorBoundary } from './components/ErrorBoundary';
 import { useAuthStore } from './stores/auth.store';
 import { setAuthToken } from './services/api.service';
 
 const router = createBrowserRouter([
   // Rotas publicas
-  { path: "/login", element: <Login /> },
-  { path: "/pending", element: <PendingApproval /> },
+  { path: "/login", element: <Login />, errorElement: <RouteErrorBoundary /> },
+  { path: "/pending", element: <PendingApproval />, errorElement: <RouteErrorBoundary /> },
 
   // Rotas protegidas — exigem autenticacao
   {
@@ -32,6 +33,7 @@ const router = createBrowserRouter([
         <DashboardLayout />
       </ProtectedRoute>
     ),
+    errorElement: <RouteErrorBoundary />,
     children: [
       { index: true, element: <Dashboard /> },
       { path: "contratos", element: <Contratos /> },
@@ -47,13 +49,14 @@ const router = createBrowserRouter([
     ],
   },
   // Qualquer rota desconhecida → login
-  { path: "*", element: <Navigate to="/login" replace /> },
+  { path: "*", element: <Navigate to="/login" replace />, errorElement: <RouteErrorBoundary /> },
 ]);
 
 function App() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const token = useAuthStore((s) => s.token);
   const checkSession = useAuthStore((s) => s.checkSession);
+  const logout = useAuthStore((s) => s.logout);
 
   // Na inicialização, tenta restaurar sessão via cookie HttpOnly
   useEffect(() => {
@@ -66,6 +69,18 @@ function App() {
       setAuthToken(token);
     }
   }, [token]);
+
+  // Sessão expirada (401 / token inválido): faz logout e navega suavemente
+  // para o login em vez de `window.location.href` (que causava o crash
+  // "insertBefore" ao derrubar a árvore DOM no meio de um commit do React).
+  useEffect(() => {
+    const onSessionExpired = () => {
+      logout();
+      router.navigate('/login', { replace: true });
+    };
+    window.addEventListener('auth:session-expired', onSessionExpired);
+    return () => window.removeEventListener('auth:session-expired', onSessionExpired);
+  }, [logout]);
 
   return (
     <>

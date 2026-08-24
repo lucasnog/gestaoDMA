@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Clock, LogOut, RefreshCw, CheckCircle } from 'lucide-react';
 import { useAuthStore } from '../stores/auth.store';
@@ -9,24 +9,37 @@ const PendingApproval = () => {
   const navigate = useNavigate();
   const [checking, setChecking] = useState(false);
   const [checked, setChecked] = useState(false);
+  // Guards contra corridas: impede chamadas duplicadas de checkStatus,
+  // setState após desmontagem e navegação no mesmo tick do updateUser
+  // (que causavam o crash "insertBefore" do React).
+  const mountedRef = useRef(true);
+  const checkingRef = useRef(false);
 
   // Quando montar, tenta verificar o status real no Firestore
   useEffect(() => {
+    mountedRef.current = true;
     checkStatus();
-  }, []);
+    return () => { mountedRef.current = false; };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const checkStatus = async () => {
-    if (!user?.uid) return;
+    if (!user?.uid || checkingRef.current) return;
+    checkingRef.current = true;
     setChecking(true);
     try {
       const userRef = doc(db, 'usuarios', user.uid);
       const snap = await getDoc(userRef);
+      if (!mountedRef.current) return;
       if (snap.exists()) {
         const data = snap.data();
         if (data.status === 'ativo') {
           // Foi aprovado! Atualiza store e redireciona
           updateUser({ status: 'ativo', tipo: data.tipo || 'user' });
-          navigate('/', { replace: true });
+          // Adia a navegação para o próximo tick, evitando que o store update
+          // e o router commit disputem o mesmo DOM no mesmo frame.
+          setTimeout(() => {
+            if (mountedRef.current) navigate('/', { replace: true });
+          }, 0);
           return;
         }
       }
@@ -34,7 +47,8 @@ const PendingApproval = () => {
     } catch (err) {
       console.warn('[Pending] Erro ao verificar status:', err.message);
     } finally {
-      setChecking(false);
+      if (mountedRef.current) setChecking(false);
+      checkingRef.current = false;
     }
   };
 

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/auth.store';
 
@@ -10,18 +10,28 @@ const Login = () => {
   const loginGoogleRedirect = useAuthStore((s) => s.loginGoogleRedirect);
   const clearError = useAuthStore((s) => s.clearError);
   const navigate = useNavigate();
+  // Garante que a navegação pós-login aconteça só uma vez (evita a corrida
+  // entre checkRedirectResult e o efeito de isAuthenticated, que causava o
+  // crash "insertBefore" do React).
+  const navigatedRef = useRef(false);
 
   // Verifica resultado de redirect (login alternativo) na montagem
   const checkRedirectResult = useAuthStore((s) => s.checkRedirectResult);
   useEffect(() => {
     checkRedirectResult().then((result) => {
-      if (result) navigate('/', { replace: true });
+      if (result && !navigatedRef.current) {
+        navigatedRef.current = true;
+        navigate('/', { replace: true });
+      }
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Se ja estiver logado, redireciona pro dashboard
   useEffect(() => {
-    if (isAuthenticated) navigate('/', { replace: true });
+    if (isAuthenticated && !navigatedRef.current) {
+      navigatedRef.current = true;
+      navigate('/', { replace: true });
+    }
   }, [isAuthenticated, navigate]);
 
   return (
