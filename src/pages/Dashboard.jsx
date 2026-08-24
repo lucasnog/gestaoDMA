@@ -41,7 +41,7 @@ const Dashboard = () => {
     { path: '/apostilas', label: 'Apostilas', icon: BadgeCheck, key: 'apostilas', desc: 'Reajustes contratuais', color: 'amber' },
     { path: '/os', label: 'Ordens de Serviço', icon: Clock, key: 'os', desc: 'Histórico de OS', color: 'violet' },
     { path: '/empresas', label: 'Empresas', icon: Building2, key: 'empresas', desc: 'Fornecedores', color: 'rose' },
-    { path: '/gestores', label: 'Gestores', icon: UserCheck, key: 'gestores', desc: 'Gestores e fiscais', color: 'emerald' },
+    { path: '/gestores', label: 'Gestores / Fiscais', icon: UserCheck, key: 'gestores', desc: 'Gestores e fiscais', color: 'emerald' },
   ], []);
 
   const SECTION_COLORS = {
@@ -57,8 +57,8 @@ const Dashboard = () => {
   useEffect(() => {
     const params = { search: contratoAlvo?.cd || '61/2023' };
     getSectionStats(params).then(res => {
-      const countGestores = res?.gestores ?? (contratos[0]?.gestor_contrato ? (contratos[0]?.fiscal_contrato ? 2 : 1) : 2);
-      setSectionStats({ ...res, gestores: countGestores });
+      // res.gestores já vem do backend como o total de gestores+fiscais ativos
+      setSectionStats(res);
     }).catch(() => {});
   }, [contratoAlvo?.cd, contratos]);
 
