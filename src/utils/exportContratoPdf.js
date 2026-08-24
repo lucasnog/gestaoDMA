@@ -1,4 +1,4 @@
-import { jsPDF } from "jspdf";
+﻿import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import {
   formatCurrency,
@@ -129,10 +129,10 @@ async function drawHeader(doc, logo) {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(14);
   doc.setTextColor(...WHITE);
-  doc.text("GEMOC Analytics", tx, 15);
+  doc.text("Gestão DMA Analytics", tx, 15);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9.5);
-  doc.text("Relatório de Detalhes do Contrato", tx, 22);
+  doc.text("Relatório de Detalhes do Contrato — Gestão DMA", tx, 22);
 
   const geradoEm = new Intl.DateTimeFormat("pt-BR", {
     dateStyle: "short",
@@ -608,7 +608,7 @@ export async function exportContratoPdf({ details, gemocdocs, municipiosGmp }) {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7.5);
     doc.setTextColor(...SLATE);
-    doc.text("GEMOC Analytics — Detalhes do Contrato", MARGIN, 293.5);
+    doc.text("Gestão DMA Analytics — Detalhes do Contrato", MARGIN, 293.5);
     doc.text(`Página ${i} de ${pages}`, PAGE_W - MARGIN, 293.5, { align: "right" });
   }
 
