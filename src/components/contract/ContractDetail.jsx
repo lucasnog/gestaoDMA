@@ -1086,11 +1086,6 @@ const ContractDetail = ({ contratoId, onClose }) => {
                       details?.dias_restantes <= 0
                     )
                       alerts.push({ type: "danger", text: "Contrato vencido" });
-                    if (details?.vl_divida > 0)
-                      alerts.push({
-                        type: "danger",
-                        text: `Dívida de ${formatCurrency(details.vl_divida)}`,
-                      });
                     if (
                       gs?.VALOR_DA_ULTIMA_MEDICAO &&
                       details?.medicoes?.length > 0
