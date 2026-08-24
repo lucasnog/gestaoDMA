@@ -170,13 +170,13 @@ const BannerContent = ({ contratoCode, empresaNome, dsObjeto, numSmo, onViewFull
             onClick={() => {
               const url = `https://sider.goinfra.go.gov.br/ctosmo/abrirVisualizacaoContrato.do?nuTitulo=${numSmo}&mostraSaldosMensais=false&sistemaOrigem=SMO&acaoSelecionar=`;
               const w = 1000, h = 750;
-              window.open(url, 'SIDER', `width=${w},height=${h},left=${(screen.width-w)/2},top=${(screen.height-h)/2},menubar=no,toolbar=yes,location=yes,status=yes,resizable=yes`);
+              window.open(url, 'SIDER', `width=${w},height=${h},left=${(screen.width-w)/2},top=${(screen.height-h)/2},menubar=no,toolbar=yes,location=no,status=yes,resizable=yes`);
             }}
             className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 text-[10px] font-semibold transition-all"
-            title={`Abrir SMO ${numSmo}`}
+            title="Abrir no SMO"
           >
             <ExternalLink size={11} strokeWidth={2} />
-            SMO {numSmo}
+            Abrir no SMO
           </button>
         )}
 
