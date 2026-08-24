@@ -5,15 +5,17 @@ import {
   TrendingUp,
   FileText,
   Download,
-  DollarSign
+  DollarSign,
+  X,
+  FileSpreadsheet,
+  Loader2
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
-import { formatCurrency, formatDate } from '../utils/formatters';
+import { formatCurrency } from '../utils/formatters';
 import * as apiService from '../services/api.service';
 import Card from '../components/ui/Card';
 import Skeleton from '../components/ui/Skeleton';
 import Pagination from '../components/ui/Pagination';
-import ContractDetail from '../components/contract/ContractDetail';
 import ExportDialog from '../components/ui/ExportDialog';
 import { useDashboardContext } from '../layouts/DashboardLayout';
 import { CONTRATO_ALVO } from '../config/constants';
@@ -23,7 +25,6 @@ const Medicoes = () => {
   const [monthlyData, setMonthlyData] = useState([]);
   const [monthPage, setMonthPage] = useState(0);
   const MONTHS_PER_PAGE = 12;
-  const [selectedContratoId, setSelectedContratoId] = useState(null);
   const [monthlyDetail, setMonthlyDetail] = useState([]);
   const [selectedMes, setSelectedMes] = useState(null);
   const [chartPeriodo, setChartPeriodo] = useState('mes');
@@ -36,6 +37,52 @@ const Medicoes = () => {
   const [sortConfig, setSortConfig] = useState({ key: null, direction: null });
   const [medicoesList, setMedicoesList] = useState([]);
   const [medicoesLoading, setMedicoesLoading] = useState(true);
+  const [preview, setPreview] = useState(null);
+
+  // Fecha prévia com a tecla ESC (padrão das outras abas)
+  useEffect(() => {
+    if (!preview) return;
+    const handler = (e) => { if (e.key === 'Escape') closePreview(); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [preview]);
+
+  const closePreview = () => {
+    if (preview?.tipo === 'blob' && preview?.data) URL.revokeObjectURL(preview.data);
+    setPreview(null);
+  };
+
+  // Abre a medição no visualizador (mesmo padrão da aba Fichas do GEMOC)
+  const handleOpenMedicao = (m) => {
+    const relPath = getMedicaoRelPath(m);
+    if (!relPath) return;
+    setPreview({ medicao: m, url: '', loading: true, error: null });
+    apiService.getMedicoesPubToken(relPath)
+      .then((data) => {
+        if (!data?.token) throw new Error('Sem token');
+        const pubUrl = window.location.origin + '/api/medicoes/pub/' + data.token;
+        const viewerUrl = 'https://view.officeapps.live.com/op/view.aspx?src=' + encodeURIComponent(pubUrl);
+        setPreview({ medicao: m, url: viewerUrl, loading: false, error: null });
+      })
+      .catch((e) => setPreview({ medicao: m, url: '', loading: false, error: e.message }));
+  };
+
+  const downloadMedicao = (m) => {
+    const relPath = getMedicaoRelPath(m);
+    if (!relPath) return;
+    apiService.downloadMedicaoArquivo(relPath)
+      .then((blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = relPath.split('/').pop();
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      })
+      .catch((e) => alert('Erro: ' + e.message));
+  };
 
 
 
@@ -120,14 +167,33 @@ const Medicoes = () => {
     setTablePage(1);
   }, [contratos, itemsPerPage]);
 
-  // Busca todas as medições do contrato alvo (61/2023)
+  // Busca as medições no backend (padrão fichas: /medicoes/arquivos) e mescla com vl_pi/vl_ra da API
   useEffect(() => {
     let active = true;
     setMedicoesLoading(true);
-    apiService.getContratoDetails(CONTRATO_ALVO.id)
-      .then((details) => {
+    Promise.all([
+      apiService.getMedicoesArquivos().catch(() => null),
+      apiService.getContratoDetails(CONTRATO_ALVO.id).catch(() => null),
+    ])
+      .then(([meta, details]) => {
         if (!active) return;
-        setMedicoesList(Array.isArray(details?.medicoes) ? details.medicoes : []);
+        const metaList = meta?.medicoes || [];
+        const apiMap = {};
+        if (details && Array.isArray(details.medicoes)) {
+          details.medicoes.forEach(m => {
+            apiMap[String(m.nr_medicao || m.nuMedicao || '')] = m;
+          });
+        }
+        const merged = metaList.map(m => {
+          const api = apiMap[String(m.nuMedicao || '')] || {};
+          return {
+            ...m,
+            vl_pi: m.vl_pi ?? api.vl_pi,
+            vl_ra: m.vl_ra ?? api.vl_ra,
+            vl_total: m.vl_total ?? api.vl_total ?? m.vlMedicao,
+          };
+        });
+        setMedicoesList(merged);
       })
       .catch(() => { if (active) setMedicoesList([]); })
       .finally(() => { if (active) setMedicoesLoading(false); });
@@ -193,13 +259,13 @@ const detailMap = React.useMemo(() => {
 
   const exportColumns = useMemo(function() {
     return [
-      { key: 'nr_medicao', label: 'Nº Medição' },
-      { key: 'dt_medicao', label: 'Data Medição' },
-      { key: 'dt_periodo_inicio', label: 'Início Período' },
-      { key: 'dt_periodo_fim', label: 'Fim Período' },
+      { key: 'nuMedicao', label: 'Nº Medição' },
+      { key: 'deMedicao', label: 'Descrição' },
+      { key: 'dtInimedicao', label: 'Início Período' },
+      { key: 'dtFimmedicao', label: 'Fim Período' },
+      { key: 'vlMedicao', label: 'Valor' },
       { key: 'vl_pi', label: 'PI' },
       { key: 'vl_ra', label: 'RA' },
-      { key: 'vl_total', label: 'Total Medido' },
     ];
   }, []);
 
@@ -383,6 +449,12 @@ const detailMap = React.useMemo(() => {
     },
   ];
 
+  // Caminho relativo do arquivo .xls (campo "arquivo" do meta.json)
+  const getMedicaoRelPath = (m) => {
+    if (!m?.arquivo) return null;
+    return String(m.arquivo).replace(/\\/g, '/');
+  };
+
   // Ordenação da lista de medições (por padrão, Nº desc)
   const sortedMedicoes = React.useMemo(() => {
     const list = [...medicoesList];
@@ -398,8 +470,8 @@ const detailMap = React.useMemo(() => {
         }
         if (aVal == null) return 1;
         if (bVal == null) return -1;
-        const aNum = parseFloat(aVal);
-        const bNum = parseFloat(bVal);
+        const aNum = parseFloat(String(aVal).replace(/\./g, '').replace(',', '.'));
+        const bNum = parseFloat(String(bVal).replace(/\./g, '').replace(',', '.'));
         if (!isNaN(aNum) && !isNaN(bNum)) {
           return sortConfig.direction === 'asc' ? aNum - bNum : bNum - aNum;
         }
@@ -408,7 +480,7 @@ const detailMap = React.useMemo(() => {
         return sortConfig.direction === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
       });
     } else {
-      list.sort((a, b) => (parseInt(b.nr_medicao) || 0) - (parseInt(a.nr_medicao) || 0));
+      list.sort((a, b) => (parseInt(b.nuMedicao) || 0) - (parseInt(a.nuMedicao) || 0));
     }
     return list;
   }, [medicoesList, sortConfig]);
@@ -419,13 +491,13 @@ const detailMap = React.useMemo(() => {
 
   const exportData = React.useMemo(() => {
     return sortedMedicoes.map((m) => ({
-      nr_medicao: m.nr_medicao,
-      dt_medicao: m.dt_medicao,
-      dt_periodo_inicio: m.dt_periodo_inicio,
-      dt_periodo_fim: m.dt_periodo_fim,
-      vl_pi: parseFloat(m.vl_pi || 0),
-      vl_ra: parseFloat(m.vl_ra || 0),
-      vl_total: parseFloat(m.vl_total || 0) || (parseFloat(m.vl_pi || 0) + parseFloat(m.vl_ra || 0)),
+      nuMedicao: m.nuMedicao,
+      deMedicao: m.deMedicao,
+      dtInimedicao: m.dtInimedicao,
+      dtFimmedicao: m.dtFimmedicao,
+      vlMedicao: m.vlMedicao,
+      vl_pi: m.vl_pi,
+      vl_ra: m.vl_ra,
     }));
   }, [sortedMedicoes]);
 
@@ -608,14 +680,17 @@ const detailMap = React.useMemo(() => {
           <table className="w-full text-left">
             <thead>
               <tr className="border-b border-emerald-100/30">
-                <th onClick={() => handleSort('nr_medicao')} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none w-16">
-                  Nº{sortConfig.key === 'nr_medicao' ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
-                </th>
-                <th onClick={() => handleSort('dt_medicao')} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none">
-                  Data Medição{sortConfig.key === 'dt_medicao' ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
+                <th onClick={() => handleSort('nuMedicao')} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none w-16">
+                  Nº{sortConfig.key === 'nuMedicao' ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
                 </th>
                 <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-                  Período
+                  Medição
+                </th>
+                <th onClick={() => handleSort('dtInimedicao')} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none">
+                  Período{sortConfig.key === 'dtInimedicao' ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
+                </th>
+                <th onClick={() => handleSort('vlMedicao')} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none text-right">
+                  Valor{sortConfig.key === 'vlMedicao' ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
                 </th>
                 <th onClick={() => handleSort('vl_pi')} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none text-right">
                   PI{sortConfig.key === 'vl_pi' ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
@@ -623,8 +698,8 @@ const detailMap = React.useMemo(() => {
                 <th onClick={() => handleSort('vl_ra')} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none text-right">
                   RA{sortConfig.key === 'vl_ra' ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
                 </th>
-                <th onClick={() => handleSort('vl_total')} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none text-right">
-                  Total{sortConfig.key === 'vl_total' ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
+                <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-center w-28">
+                  Ações
                 </th>
               </tr>
             </thead>
@@ -632,7 +707,7 @@ const detailMap = React.useMemo(() => {
               {medicoesLoading ? (
                 [...Array(6)].map((_, i) => (
                   <tr key={i}>
-                    {[...Array(6)].map((_, j) => (
+                    {[...Array(7)].map((_, j) => (
                       <td key={j} className="px-4 py-3">
                         <Skeleton className={`h-6 ${j === 0 ? 'w-10' : 'w-20'}`} />
                       </td>
@@ -641,46 +716,66 @@ const detailMap = React.useMemo(() => {
                 ))
               ) : pagedMedicoes.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="px-6 py-20 text-center">
+                  <td colSpan="7" className="px-6 py-20 text-center">
                     <FileText size={40} className="mx-auto text-emerald-200 mb-4" strokeWidth={1.5} />
                     <p className="text-sm font-medium text-slate-400">Nenhuma medição encontrada</p>
-                    <p className="text-xs text-slate-300 mt-1">Tente ajustar os filtros no painel principal</p>
+                    <p className="text-xs text-slate-300 mt-1">Nenhuma medição cadastrada no backend</p>
                   </td>
                 </tr>
               ) : (
                 pagedMedicoes.map((m, idx) => {
-                  const pi = parseFloat(m.vl_pi || 0);
-                  const ra = parseFloat(m.vl_ra || 0);
-                  const total = parseFloat(m.vl_total || 0) || pi + ra;
+                  const url = getMedicaoRelPath(m);
                   return (
                     <tr
-                      key={`${m.nr_medicao}-${idx}`}
-                      onClick={() => setSelectedContratoId(CONTRATO_ALVO.id)}
-                      className="group cursor-pointer transition-all duration-200 hover:bg-emerald-50/40"
+                      key={`${m.nuMedicao}-${idx}`}
+                      onClick={() => { if (url) handleOpenMedicao(m); }}
+                      className={`group transition-all duration-200 hover:bg-emerald-50/40 ${url ? 'cursor-pointer' : ''}`}
                     >
                       <td className="px-4 py-3">
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 border border-emerald-100/50 text-[11px] font-semibold text-emerald-700">
-                          {m.nr_medicao ? `${m.nr_medicao}ª` : '—'}
+                          {m.nuMedicao ? `${m.nuMedicao}ª` : '—'}
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <span className="text-sm text-slate-700">{m.dt_medicao ? formatDate(m.dt_medicao) : '—'}</span>
+                        <span className="text-sm text-slate-700">{m.deMedicao || `Medição ${m.nuMedicao}`}</span>
                       </td>
                       <td className="px-4 py-3">
-                        {m.dt_periodo_fim ? (
+                        {m.dtInimedicao || m.dtFimmedicao ? (
                           <span className="text-xs text-slate-400">
-                            {m.dt_periodo_inicio ? `${formatDate(m.dt_periodo_inicio)} a ` : ''}{formatDate(m.dt_periodo_fim)}
+                            {m.dtInimedicao ? `${m.dtInimedicao} a ` : ''}{m.dtFimmedicao || ''}
                           </span>
                         ) : <span className="text-[11px] text-slate-400">—</span>}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <span className="text-sm font-semibold text-emerald-700">{formatCurrency(pi)}</span>
+                        <span className="text-sm font-bold text-slate-900">{m.vlMedicao ? formatCurrency(parseFloat(String(m.vlMedicao).replace(/\./g, '').replace(',', '.'))) : '—'}</span>
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <span className="text-sm font-semibold text-amber-600">{ra > 0 ? formatCurrency(ra) : '—'}</span>
+                        <span className="text-sm font-semibold text-emerald-700">{m.vl_pi ? formatCurrency(parseFloat(m.vl_pi)) : '—'}</span>
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <span className="text-sm font-bold text-slate-900">{formatCurrency(total)}</span>
+                        <span className="text-sm font-semibold text-amber-600">{m.vl_ra && parseFloat(m.vl_ra) > 0 ? formatCurrency(parseFloat(m.vl_ra)) : '—'}</span>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        {url ? (
+                          <div className="inline-flex items-center gap-1">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleOpenMedicao(m); }}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold text-emerald-700 hover:bg-emerald-50 border border-transparent hover:border-emerald-200 transition-all"
+                              title="Visualizar medição"
+                            >
+                              <FileSpreadsheet size={12} strokeWidth={2} />
+                              Ver
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); downloadMedicao(m); }}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold text-slate-500 hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all"
+                              title="Baixar arquivo"
+                            >
+                              <Download size={12} strokeWidth={2} />
+                              Baixar
+                            </button>
+                          </div>
+                        ) : <span className="text-[11px] text-slate-300">—</span>}
                       </td>
                     </tr>
                   );
@@ -699,23 +794,54 @@ const detailMap = React.useMemo(() => {
         columns={exportColumns}
         formatters={function() {
           return {
-            dt_medicao: formatDate,
-            dt_periodo_inicio: formatDate,
-            dt_periodo_fim: formatDate,
-            vl_pi: formatCurrency,
-            vl_ra: formatCurrency,
-            vl_total: formatCurrency,
+            dtInimedicao: (v) => v,
+            dtFimmedicao: (v) => v,
+            vlMedicao: (v) => (v ? formatCurrency(parseFloat(String(v).replace(/\./g, '').replace(',', '.'))) : '—'),
+            vl_pi: (v) => (v ? formatCurrency(parseFloat(v)) : '—'),
+            vl_ra: (v) => (v && parseFloat(v) > 0 ? formatCurrency(parseFloat(v)) : '—'),
           };
         }()}
         filename="medicoes"
         title="Exportar Medições"
       />
-
-      <ContractDetail
-        contratoId={selectedContratoId}
-        onClose={() => setSelectedContratoId(null)}
-      />
     </div>
+
+      {/* ─── Prévia da medição (tela cheia) ─────────── */}
+      {preview && (
+        <div className="fixed inset-0 z-[99999] flex flex-col bg-white overflow-hidden">
+          <div className="flex items-center gap-2 px-4 sm:px-6 py-3 border-b border-gray-200 shrink-0">
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <FileSpreadsheet size={18} className="text-emerald-600 shrink-0" />
+              <h2 className="font-bold text-gray-800 truncate text-sm min-w-0">
+                {preview.medicao?.deMedicao || `Medição ${preview.medicao?.nuMedicao || ''}`}
+              </h2>
+              <span className="text-xs text-slate-400 uppercase shrink-0">.xls</span>
+            </div>
+            <button onClick={closePreview} className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors shrink-0 ml-auto" title="Fechar (Esc)">
+              <X size={18} />
+            </button>
+          </div>
+          <div className="flex-1 bg-[#f0f0f0] relative min-h-0">
+            {preview.loading && (
+              <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-10">
+                <Loader2 size={28} className="animate-spin text-emerald-600" />
+              </div>
+            )}
+            {preview.error && (
+              <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-10">
+                <p className="text-red-500 text-sm">Erro: {preview.error}</p>
+              </div>
+            )}
+            {!preview.loading && !preview.error && (
+              <iframe
+                src={preview.url}
+                className="w-full h-full border-0"
+                title={preview.medicao?.deMedicao || 'Medição'}
+              />
+            )}
+          </div>
+        </div>
+      )}
     </>
   );
 };

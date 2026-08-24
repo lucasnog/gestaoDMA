@@ -182,6 +182,23 @@ export const getContratosByMes = async (mes, bloco) => {
     return response.data;
 };
 
+// ════════════════ MEDIÇÕES (ARQUIVOS .xls) ═════════════════════════
+
+export const getMedicoesArquivos = async () => {
+    const response = await api.get('/medicoes/arquivos');
+    return response.data;
+};
+
+export const getMedicoesPubToken = async (relPath) => {
+    const response = await api.get('/medicoes/pub/token', { params: { path: relPath } });
+    return response.data;
+};
+
+export const downloadMedicaoArquivo = async (relPath) => {
+    const response = await api.get('/medicoes/download', { params: { path: relPath }, responseType: 'blob' });
+    return response.data;
+};
+
 // ÔöÇÔöÇÔöÇ GEMOCDOCS ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 
 export const getGemocdocsTables = async () => {
