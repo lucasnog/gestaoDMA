@@ -548,7 +548,8 @@ const detailMap = React.useMemo(() => {
     if (sortConfig.key && sortConfig.direction) {
       list.sort((a, b) => {
         let aVal, bVal;
-        if (['dt_medicao','dt_periodo_inicio','dt_periodo_fim','dtInimedicao','dtFimmedicao','dtMedicao'].includes(sortConfig.key)) {
+        const isData = ['dt_medicao','dt_periodo_inicio','dt_periodo_fim','dtInimedicao','dtFimmedicao','dtMedicao'].includes(sortConfig.key);
+        if (isData) {
           const toIso = (d) => {
             if (!d) return '';
             if (/^\d{2}\/\d{2}\/\d{4}/.test(d)) {
@@ -559,20 +560,24 @@ const detailMap = React.useMemo(() => {
           };
           aVal = toIso(a[sortConfig.key] || '');
           bVal = toIso(b[sortConfig.key] || '');
+          if (aVal === '') return 1;
+          if (bVal === '') return -1;
+          // Datas: compara como string ISO (ordena por ano-mes-dia)
+          return sortConfig.direction === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
         } else {
           aVal = a[sortConfig.key];
           bVal = b[sortConfig.key];
+          if (aVal == null) return 1;
+          if (bVal == null) return -1;
+          const aNum = parseFloat(String(aVal).replace(/\./g, '').replace(',', '.'));
+          const bNum = parseFloat(String(bVal).replace(/\./g, '').replace(',', '.'));
+          if (!isNaN(aNum) && !isNaN(bNum)) {
+            return sortConfig.direction === 'asc' ? aNum - bNum : bNum - aNum;
+          }
+          aVal = String(aVal).toLowerCase();
+          bVal = String(bVal).toLowerCase();
+          return sortConfig.direction === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
         }
-        if (aVal == null || aVal === '') return 1;
-        if (bVal == null || bVal === '') return -1;
-        const aNum = parseFloat(String(aVal).replace(/\./g, '').replace(',', '.'));
-        const bNum = parseFloat(String(bVal).replace(/\./g, '').replace(',', '.'));
-        if (!isNaN(aNum) && !isNaN(bNum)) {
-          return sortConfig.direction === 'asc' ? aNum - bNum : bNum - aNum;
-        }
-        aVal = String(aVal).toLowerCase();
-        bVal = String(bVal).toLowerCase();
-        return sortConfig.direction === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
       });
     } else {
       // Ordena por período fim desc (mais recente primeiro)
