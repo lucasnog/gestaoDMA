@@ -548,15 +548,23 @@ const detailMap = React.useMemo(() => {
     if (sortConfig.key && sortConfig.direction) {
       list.sort((a, b) => {
         let aVal, bVal;
-        if (sortConfig.key === 'dt_medicao' || sortConfig.key === 'dt_periodo_inicio' || sortConfig.key === 'dt_periodo_fim') {
-          aVal = a[sortConfig.key] || '';
-          bVal = b[sortConfig.key] || '';
+        if (['dt_medicao','dt_periodo_inicio','dt_periodo_fim','dtInimedicao','dtFimmedicao','dtMedicao'].includes(sortConfig.key)) {
+          const toIso = (d) => {
+            if (!d) return '';
+            if (/^\d{2}\/\d{2}\/\d{4}/.test(d)) {
+              const [dd, mm, yyyy] = d.split('/');
+              return `${yyyy}-${mm}-${dd}`;
+            }
+            return d;
+          };
+          aVal = toIso(a[sortConfig.key] || '');
+          bVal = toIso(b[sortConfig.key] || '');
         } else {
           aVal = a[sortConfig.key];
           bVal = b[sortConfig.key];
         }
-        if (aVal == null) return 1;
-        if (bVal == null) return -1;
+        if (aVal == null || aVal === '') return 1;
+        if (bVal == null || bVal === '') return -1;
         const aNum = parseFloat(String(aVal).replace(/\./g, '').replace(',', '.'));
         const bNum = parseFloat(String(bVal).replace(/\./g, '').replace(',', '.'));
         if (!isNaN(aNum) && !isNaN(bNum)) {
