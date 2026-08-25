@@ -8,7 +8,8 @@ import {
   DollarSign,
   X,
   FileSpreadsheet,
-  Loader2
+  Loader2,
+  Search
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
 import { formatCurrency, formatDate } from '../utils/formatters';
@@ -38,6 +39,7 @@ const Medicoes = () => {
   const [medicoesList, setMedicoesList] = useState([]);
   const [medicoesLoading, setMedicoesLoading] = useState(true);
   const [preview, setPreview] = useState(null);
+  const [buscaMedicao, setBuscaMedicao] = useState('');
 
   // Fecha prévia com a tecla ESC (padrão das outras abas)
   useEffect(() => {
@@ -486,6 +488,58 @@ const detailMap = React.useMemo(() => {
         return iso.startsWith(selectedMes.substring(0, 7));
       });
     }
+    // Filtro por busca (número exato da medição, nome do mês, ou mês/ano)
+    if (buscaMedicao && buscaMedicao.trim()) {
+      const termo = buscaMedicao.trim().toLowerCase();
+      // Tenta interpretar a busca
+      const meses = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+      const isNumero = /^\d+$/.test(termo);
+      // Nome de mês -> "07" | "janeiro de 2026" -> "2026-01"
+      let mesFiltro = null;
+      if (termo.includes('/')) {
+        // "07/2026" ou "7/2026"
+        const [mm, yyyy] = termo.split('/');
+        if (/^\d+$/.test(mm) && /^\d{4}$/.test(String(yyyy).trim())) {
+          mesFiltro = `${String(yyyy).trim()}-${String(mm).padStart(2, '0')}`;
+        }
+      } else {
+        const mesIdx = meses.findIndex(m => termo.includes(m));
+        if (mesIdx >= 0) {
+          const mm = String(mesIdx + 1).padStart(2, '0');
+          const yyyyMatch = termo.match(/\d{4}/);
+          mesFiltro = yyyyMatch ? `${yyyyMatch[0]}-${mm}` : null;
+          // Se só "janeiro", filtra por -01 (qualquer ano)
+          if (!mesFiltro && yyyyMatch === null) mesFiltro = `-${mm}`;
+        } else if (/^\d{4}$/.test(termo)) {
+          mesFiltro = termo; // ano
+        }
+      }
+      list = list.filter(m => {
+        const dtIni = m.dtInimedicao || '';
+        const dtFim = m.dtFimmedicao || '';
+        const dtMed = m.dtMedicao || '';
+        const toIso = (d) => {
+          if (!d) return '';
+          if (/^\d{2}\/\d{2}\/\d{4}/.test(d)) {
+            const [dd, mm, yyyy] = d.split('/');
+            return `${yyyy}-${mm}-${dd}`;
+          }
+          return d;
+        };
+        const iso = toIso(dtIni) || toIso(dtFim) || toIso(dtMed);
+        // Número exato da medição
+        if (isNumero && String(m.nuMedicao) === termo) return true;
+        // Filtro por mês/ano
+        if (mesFiltro) {
+          if (mesFiltro.length === 4) return iso.startsWith(mesFiltro);
+          if (mesFiltro.startsWith('-')) return iso.includes(mesFiltro);
+          return iso.startsWith(mesFiltro);
+        }
+        // Fallback: procura no texto
+        const partes = `${m.nuMedicao} ${dtIni} ${dtFim} ${dtMed}`.toLowerCase();
+        return partes.includes(termo);
+      });
+    }
     if (sortConfig.key && sortConfig.direction) {
       list.sort((a, b) => {
         let aVal, bVal;
@@ -508,10 +562,23 @@ const detailMap = React.useMemo(() => {
         return sortConfig.direction === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
       });
     } else {
-      list.sort((a, b) => (parseInt(b.nuMedicao) || 0) - (parseInt(a.nuMedicao) || 0));
+      // Ordena por período fim desc (mais recente primeiro)
+      list.sort((a, b) => {
+        const aData = a.dtFimmedicao || a.dtInimedicao || '';
+        const bData = b.dtFimmedicao || b.dtInimedicao || '';
+        const toIso = (d) => {
+          if (!d) return '';
+          if (/^\d{2}\/\d{2}\/\d{4}/.test(d)) {
+            const [dd, mm, yyyy] = d.split('/');
+            return `${yyyy}-${mm}-${dd}`;
+          }
+          return d;
+        };
+        return toIso(bData).localeCompare(toIso(aData));
+      });
     }
     return list;
-  }, [medicoesList, sortConfig, selectedMes]);
+  }, [medicoesList, sortConfig, selectedMes, buscaMedicao]);
 
   const totalTablePages = Math.max(1, Math.ceil(sortedMedicoes.length / itemsPerPage));
   const safeTablePage = Math.min(tablePage, totalTablePages);
@@ -701,6 +768,15 @@ const detailMap = React.useMemo(() => {
             Medições
           </span>
           <span className="text-[10px] font-medium text-slate-400 ml-2">{sortedMedicoes.length} registros · {CONTRATO_ALVO.label}</span>
+          <div className="relative ml-auto">
+            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" strokeWidth={2} />
+            <input
+              value={buscaMedicao}
+              onChange={(e) => setBuscaMedicao(e.target.value)}
+              placeholder="Nº ou mês..."
+              className="w-40 sm:w-52 pl-8 pr-3 py-1.5 rounded-lg text-xs border border-emerald-200/60 bg-white text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 transition-all"
+            />
+          </div>
         </div>
 
         {/* ─── Desktop: tabela completa ─────────── */}
