@@ -66,12 +66,29 @@ export async function loginFirebaseBackend(idToken) {
  * O backend valida a assinatura e retorna o tipo real (admin/user)
  * @returns {Promise<{valid: boolean, tipo?: string, email?: string, exp?: number}>}
  */
+/**
+ * Aguarda o Firebase Auth restaurar a sessão (evita corrida no F5 onde
+ * auth.currentUser ainda é null e o X-Firebase-Token não é enviado).
+ * Resolve em até ~3s mesmo sem usuário.
+ */
+function aguardarFirebaseAuth(timeoutMs = 3000) {
+    return new Promise((resolve) => {
+        if (auth.currentUser) return resolve(auth.currentUser);
+        const timer = setTimeout(() => resolve(auth.currentUser || null), timeoutMs);
+        auth.onAuthStateChanged((user) => {
+            clearTimeout(timer);
+            resolve(user);
+        });
+    });
+}
+
 export async function verifyToken() {
     try {
         let headers = {};
         try {
-            if (auth.currentUser) {
-                const fbToken = await auth.currentUser.getIdToken();
+            const user = await aguardarFirebaseAuth();
+            if (user) {
+                const fbToken = await user.getIdToken();
                 headers['X-Firebase-Token'] = fbToken;
             }
         } catch (_) {}
