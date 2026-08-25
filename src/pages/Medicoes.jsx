@@ -457,7 +457,17 @@ const detailMap = React.useMemo(() => {
 
   // Ordenação da lista de medições (por padrão, Nº desc)
   const sortedMedicoes = React.useMemo(() => {
-    const list = [...medicoesList];
+    let list = [...medicoesList];
+    // Filtro por período selecionado no gráfico
+    if (selectedMes) {
+      list = list.filter(m => {
+        const dt = m.dtInimedicao || m.dtFimmedicao || '';
+        if (selectedMes.length === 4) {
+          return dt.startsWith(selectedMes);
+        }
+        return dt.startsWith(selectedMes.substring(0, 7));
+      });
+    }
     if (sortConfig.key && sortConfig.direction) {
       list.sort((a, b) => {
         let aVal, bVal;
@@ -483,7 +493,7 @@ const detailMap = React.useMemo(() => {
       list.sort((a, b) => (parseInt(b.nuMedicao) || 0) - (parseInt(a.nuMedicao) || 0));
     }
     return list;
-  }, [medicoesList, sortConfig]);
+  }, [medicoesList, sortConfig, selectedMes]);
 
   const totalTablePages = Math.max(1, Math.ceil(sortedMedicoes.length / itemsPerPage));
   const safeTablePage = Math.min(tablePage, totalTablePages);
@@ -672,7 +682,7 @@ const detailMap = React.useMemo(() => {
           <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
             Medições
           </span>
-          <span className="text-[10px] font-medium text-slate-400 ml-2">{medicoesList.length} registros · {CONTRATO_ALVO.label}</span>
+          <span className="text-[10px] font-medium text-slate-400 ml-2">{sortedMedicoes.length} registros · {CONTRATO_ALVO.label}</span>
         </div>
 
         {/* ─── Desktop: tabela completa ─────────── */}
