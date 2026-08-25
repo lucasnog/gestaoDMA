@@ -167,33 +167,26 @@ const Medicoes = () => {
     setTablePage(1);
   }, [contratos, itemsPerPage]);
 
-  // Busca as medições no backend (padrão fichas: /medicoes/arquivos) e mescla com vl_pi/vl_ra da API
+  // Busca as medições no banco de dados (getContratoDetails)
   useEffect(() => {
     let active = true;
     setMedicoesLoading(true);
-    Promise.all([
-      apiService.getMedicoesArquivos().catch(() => null),
-      apiService.getContratoDetails(CONTRATO_ALVO.id).catch(() => null),
-    ])
-      .then(([meta, details]) => {
+    apiService.getContratoDetails(CONTRATO_ALVO.id)
+      .then((details) => {
         if (!active) return;
-        const metaList = meta?.medicoes || [];
-        const apiMap = {};
-        if (details && Array.isArray(details.medicoes)) {
-          details.medicoes.forEach(m => {
-            apiMap[String(m.nr_medicao || m.nuMedicao || '')] = m;
-          });
-        }
-        const merged = metaList.map(m => {
-          const api = apiMap[String(m.nuMedicao || '')] || {};
-          return {
-            ...m,
-            vl_pi: m.vl_pi ?? api.vl_pi,
-            vl_ra: m.vl_ra ?? api.vl_ra,
-            vl_total: m.vl_total ?? api.vl_total ?? m.vlMedicao,
-          };
-        });
-        setMedicoesList(merged);
+        const rows = (details && Array.isArray(details.medicoes)) ? details.medicoes : [];
+        const mapped = rows.map(m => ({
+          nuMedicao: m.nr_medicao,
+          deMedicao: m.descricao || `Medição ${m.nr_medicao}`,
+          dtInimedicao: m.dt_periodo_inicio || '',
+          dtFimmedicao: m.dt_periodo_fim || '',
+          dtMedicao: m.dt_medicao || '',
+          vlMedicao: m.vl_total ?? (parseFloat(m.vl_pi || 0) + parseFloat(m.vl_ra || 0)),
+          vl_pi: m.vl_pi,
+          vl_ra: m.vl_ra,
+          vl_total: m.vl_total ?? (parseFloat(m.vl_pi || 0) + parseFloat(m.vl_ra || 0)),
+        }));
+        setMedicoesList(mapped);
       })
       .catch(() => { if (active) setMedicoesList([]); })
       .finally(() => { if (active) setMedicoesLoading(false); });
@@ -769,7 +762,7 @@ const detailMap = React.useMemo(() => {
                         ) : <span className="text-[11px] text-slate-400">—</span>}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <span className="text-sm font-bold text-slate-900">{m.vlMedicao ? formatCurrency(parseFloat(String(m.vlMedicao).replace(/\./g, '').replace(',', '.'))) : '—'}</span>
+                        <span className="text-sm font-bold text-slate-900">{m.vlMedicao ? formatCurrency(parseFloat(m.vlMedicao)) : '—'}</span>
                       </td>
                       <td className="px-4 py-3 text-right">
                         <span className="text-sm font-semibold text-emerald-700">{m.vl_pi ? formatCurrency(parseFloat(m.vl_pi)) : '—'}</span>
