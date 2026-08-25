@@ -9,7 +9,10 @@ import {
   Tag,
   List,
   Download,
-  BarChart3
+  BarChart3,
+  Eye,
+  X,
+  Loader2
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
 import { formatCurrency, formatDate } from '../utils/formatters';
@@ -21,7 +24,6 @@ import Skeleton from '../components/ui/Skeleton';
 import Pagination from '../components/ui/Pagination';
 import ExportDialog from '../components/ui/ExportDialog';
 import ContractDetail from '../components/contract/ContractDetail';
-import DocumentosContrato from '../components/contract/DocumentosContrato';
 
 const TIPO_CORES = {
   'Readequação': { bg: 'from-blue-500 to-blue-600', shadow: 'shadow-blue-500/20', icon: FilePlus },
@@ -48,6 +50,79 @@ const Aditivos = () => {
   const CHART_PER_PAGE = 12;
   const [selectedPeriodo, setSelectedPeriodo] = useState(null);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [docsContrato, setDocsContrato] = useState([]);
+  const [previewDoc, setPreviewDoc] = useState(null);
+
+  // ─── Carrega PDFs do contrato (readequações + retificações) ───
+  useEffect(() => {
+    let active = true;
+    apiService.getDocumentosContrato()
+      .then((data) => {
+        if (!active) return;
+        const lista = (data?.documentos || []).filter(d => d.grupo === 'readequacoes' || d.grupo === 'retificacoes');
+        setDocsContrato(lista);
+      })
+      .catch(() => { if (active) setDocsContrato([]); });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!previewDoc) return;
+    const handler = (e) => { if (e.key === 'Escape') setPreviewDoc(null); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [previewDoc]);
+
+  const getDocRelPath = (d) => d?.arquivo ? String(d.arquivo).replace(/\\/g, '/') : null;
+
+  const handleVerDoc = (d) => {
+    const relPath = getDocRelPath(d);
+    if (!relPath) return;
+    setPreviewDoc({ doc: d, url: '', loading: true, error: null });
+    apiService.getDocumentoPubToken(relPath)
+      .then((data) => {
+        if (!data?.token) throw new Error('Sem token');
+        const pubUrl = window.location.origin + '/api/documentos-contrato/pub/' + data.token;
+        setPreviewDoc({ doc: d, url: pubUrl, loading: false, error: null });
+      })
+      .catch((e) => setPreviewDoc({ doc: d, url: '', loading: false, error: e.message }));
+  };
+
+  const handleDownloadDoc = (d) => {
+    const relPath = getDocRelPath(d);
+    if (!relPath) return;
+    apiService.downloadDocumentoContrato(relPath)
+      .then((blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = d.nome || relPath.split('/').pop();
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      })
+      .catch((e) => alert('Erro: ' + e.message));
+  };
+
+  // Mapa de documentos por SEI e por número do aditivo
+  const docsMap = useMemo(() => {
+    const map = new Map();
+    for (const d of docsContrato) {
+      if (d.numero) map.set(String(d.numero), d);
+      const numMatch = (d.titulo || '').match(/(\d+)[-/](\d{4})/);
+      if (numMatch) map.set(`${numMatch[1]}/${numMatch[2]}`, d);
+    }
+    return map;
+  }, [docsContrato]);
+
+  const findDoc = (a) => {
+    const seiMatch = (a.N_DO_ADITIVO || '').match(/\(([^)]+)\)/);
+    if (seiMatch && docsMap.has(seiMatch[1])) return docsMap.get(seiMatch[1]);
+    const numAditivo = (a.N_DO_ADITIVO || '').split(' ')[0];
+    if (numAditivo && docsMap.has(numAditivo)) return docsMap.get(numAditivo);
+    return null;
+  };
 
   // ─── Helpers: período ──────────────────────────────────────
   const getWeekNumber = (dateStr) => {
@@ -555,6 +630,9 @@ const Aditivos = () => {
                 <th onClick={() => handleSort('VALOR_DO_ADITIVO')} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none">
                   Valor{sortConfig.key === 'VALOR_DO_ADITIVO' ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
                 </th>
+                <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-center w-24">
+                  PDF
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-emerald-100/20">
@@ -567,11 +645,12 @@ const Aditivos = () => {
                     <td className="px-4 py-3"><Skeleton className="h-6 w-20" /></td>
                     <td className="px-4 py-3"><Skeleton className="h-6 w-20" /></td>
                     <td className="px-4 py-3"><Skeleton className="h-6 w-24" /></td>
+                    <td className="px-4 py-3"><Skeleton className="h-6 w-16" /></td>
                   </tr>
                 ))
               ) : pagedData.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="px-6 py-20 text-center">
+                  <td colSpan="7" className="px-6 py-20 text-center">
                     <FileText size={40} className="mx-auto text-emerald-200 mb-4" strokeWidth={1.5} />
                     <p className="text-sm font-medium text-slate-400">Nenhum aditivo encontrado</p>
                     <p className="text-xs text-slate-300 mt-1">Tente ajustar os filtros</p>
@@ -610,6 +689,28 @@ const Aditivos = () => {
                           {valorExibir > 0 ? formatCurrency(valorExibir) : '—'}
                         </span>
                       </td>
+                      <td className="px-4 py-3 text-center" onClick={function(e) { e.stopPropagation(); }}>
+                        {findDoc(a) ? (
+                          <div className="inline-flex items-center gap-1">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleVerDoc(findDoc(a)); }}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold text-emerald-700 hover:bg-emerald-50 border border-transparent hover:border-emerald-200 transition-all"
+                              title="Visualizar documento"
+                            >
+                              <Eye size={12} strokeWidth={2} />
+                              Ver
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleDownloadDoc(findDoc(a)); }}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold text-slate-500 hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all"
+                              title="Baixar arquivo"
+                            >
+                              <Download size={12} strokeWidth={2} />
+                              Baixar
+                            </button>
+                          </div>
+                        ) : <span className="text-[11px] text-slate-300">—</span>}
+                      </td>
                     </tr>
                   );
                 })
@@ -640,9 +741,42 @@ const Aditivos = () => {
         title="Exportar Aditivos"
       />
 
-      {/* ─── PDFs de readequações e retificações baixados do SIDER ─── */}
-      <DocumentosContrato grupo="readequacoes" titulo="Readequações (PDF)" />
-      <DocumentosContrato grupo="retificacoes" titulo="Retificações (PDF)" />
+      {/* ─── Prévia do PDF (tela cheia) ─────────── */}
+      {previewDoc && (
+        <div className="fixed inset-0 z-[99999] flex flex-col bg-white overflow-hidden">
+          <div className="flex items-center gap-2 px-4 sm:px-6 py-3 border-b border-gray-200 shrink-0">
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <FileText size={18} className="text-red-500 shrink-0" />
+              <h2 className="font-bold text-gray-800 truncate text-sm min-w-0">
+                {previewDoc.doc?.titulo || previewDoc.doc?.nome || 'Documento'}
+              </h2>
+              <span className="text-xs text-slate-400 uppercase shrink-0">.pdf</span>
+            </div>
+            <button onClick={() => setPreviewDoc(null)} className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors shrink-0 ml-auto" title="Fechar (Esc)">
+              <X size={18} />
+            </button>
+          </div>
+          <div className="flex-1 bg-[#f0f0f0] relative min-h-0">
+            {previewDoc.loading && (
+              <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-10">
+                <Loader2 size={28} className="animate-spin text-emerald-600" />
+              </div>
+            )}
+            {previewDoc.error && (
+              <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-10">
+                <p className="text-red-500 text-sm">Erro: {previewDoc.error}</p>
+              </div>
+            )}
+            {!previewDoc.loading && !previewDoc.error && (
+              <iframe
+                src={previewDoc.url}
+                className="w-full h-full border-0"
+                title={previewDoc.doc?.titulo || 'Documento'}
+              />
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
