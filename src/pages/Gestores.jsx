@@ -245,7 +245,6 @@ const Gestores = () => {
           <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50/50">
-                <th className="px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-left text-slate-400">PDF</th>
                 <th className="px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-left text-slate-400">Portaria SEI</th>
                 <th className="px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-left text-slate-400">Vigência</th>
                 <th className="px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-left text-slate-400">Pessoas</th>
@@ -255,14 +254,14 @@ const Gestores = () => {
               {loading ? (
                 Array.from({ length: 8 }).map((_, i) => (
                   <tr key={i} className="border-b border-slate-50">
-                    {Array.from({ length: 4 }).map((_, j) => (
+                    {Array.from({ length: 3 }).map((_, j) => (
                       <td key={j} className="px-4 py-3"><Skeleton className="h-4" /></td>
                     ))}
                   </tr>
                 ))
               ) : gruposPorPortaria.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-4 py-12 text-center text-slate-400">
+                  <td colSpan={3} className="px-4 py-12 text-center text-slate-400">
                     <UserCheck size={32} className="mx-auto mb-2 opacity-30" />
                     Nenhum gestor/fiscal encontrado
                   </td>
@@ -272,29 +271,8 @@ const Gestores = () => {
                   const doc = findDocPortaria(grupo);
                   return (
                   <tr key={idx} className="border-b border-slate-50 align-top">
-                    <td className="px-4 py-3 text-center whitespace-nowrap">
-                      {doc ? (
-                        <div className="inline-flex items-center gap-1">
-                          <button
-                            onClick={() => handleVerDoc(doc)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold text-emerald-700 hover:bg-emerald-50 border border-transparent hover:border-emerald-200 transition-all"
-                            title="Visualizar portaria"
-                          >
-                            <Eye size={12} strokeWidth={2} />
-                            Ver
-                          </button>
-                          <button
-                            onClick={() => handleDownloadDoc(doc)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold text-slate-500 hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all"
-                            title="Baixar portaria"
-                          >
-                            <Download size={12} strokeWidth={2} />
-                            Baixar
-                          </button>
-                        </div>
-                      ) : <span className="text-[11px] text-slate-300">—</span>}
-                    </td>
                     <td className="px-4 py-3 text-[10px] text-slate-500 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
                       {(() => {
                         const m = grupo.portaria?.match(/\(([^)]+)\)/);
                         return m ? (
@@ -303,6 +281,25 @@ const Gestores = () => {
                           </span>
                         ) : (grupo.portaria || '—');
                       })()}
+                        {doc && (
+                          <div className="inline-flex items-center gap-0.5 shrink-0">
+                            <button
+                              onClick={() => handleVerDoc(doc)}
+                              className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-[10px] font-semibold text-emerald-700 hover:bg-emerald-50 border border-transparent hover:border-emerald-200 transition-all"
+                              title="Visualizar portaria"
+                            >
+                              <Eye size={13} strokeWidth={2} />
+                            </button>
+                            <button
+                              onClick={() => handleDownloadDoc(doc)}
+                              className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-[10px] font-semibold text-slate-500 hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all"
+                              title="Baixar portaria"
+                            >
+                              <Download size={13} strokeWidth={2} />
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </td>
 <td className="px-4 py-3 text-slate-500 text-[10px]">
   {grupo.isAtual ? (
