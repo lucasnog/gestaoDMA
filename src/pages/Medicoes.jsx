@@ -531,9 +531,13 @@ const detailMap = React.useMemo(() => {
         if (isNumero && String(m.nuMedicao) === termo) return true;
         // Filtro por mês/ano
         if (mesFiltro) {
-          if (mesFiltro.length === 4) return iso.startsWith(mesFiltro);
-          if (mesFiltro.startsWith('-')) return iso.includes(mesFiltro);
-          return iso.startsWith(mesFiltro);
+          if (mesFiltro.length === 4) return iso.startsWith(mesFiltro); // ano
+          if (mesFiltro.startsWith('-')) {
+            // só o mês (ex: "-01" = janeiro) — compara o mês do ISO (posições 5-7)
+            const mm = mesFiltro.substring(1);
+            return iso.substring(5, 7) === mm;
+          }
+          return iso.startsWith(mesFiltro); // mês/ano completo
         }
         // Fallback: procura no texto
         const partes = `${m.nuMedicao} ${dtIni} ${dtFim} ${dtMed}`.toLowerCase();
