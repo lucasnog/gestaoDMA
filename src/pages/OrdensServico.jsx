@@ -6,7 +6,10 @@ import {
   Clock,
   Download,
   BarChart3,
-  Activity
+  Activity,
+  Eye,
+  Loader2,
+  X
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
 import { formatDate } from '../utils/formatters';
@@ -18,7 +21,6 @@ import Pagination from '../components/ui/Pagination';
 import ExpandableText from '../components/ui/ExpandableText';
 import ExportDialog from '../components/ui/ExportDialog';
 import ContractDetail from '../components/contract/ContractDetail';
-import DocumentosContrato from '../components/contract/DocumentosContrato';
 import { useDashboardContext } from '../layouts/DashboardLayout';
 
 const TIPO_CORES = {
@@ -45,6 +47,74 @@ const OrdensServico = () => {
   const [exportOpen, setExportOpen] = useState(false);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: null });
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [docsContrato, setDocsContrato] = useState([]);
+  const [previewDoc, setPreviewDoc] = useState(null);
+
+  // ─── Carrega PDFs do contrato (OS) ───
+  useEffect(() => {
+    let active = true;
+    apiService.getDocumentosContrato()
+      .then((data) => {
+        if (!active) return;
+        setDocsContrato((data?.documentos || []).filter(d => d.grupo === 'OS'));
+      })
+      .catch(() => { if (active) setDocsContrato([]); });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!previewDoc) return;
+    const handler = (e) => { if (e.key === 'Escape') setPreviewDoc(null); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [previewDoc]);
+
+  const getDocRelPath = (d) => d?.arquivo ? String(d.arquivo).replace(/\\/g, '/') : null;
+
+  const handleVerDoc = (d) => {
+    const relPath = getDocRelPath(d);
+    if (!relPath) return;
+    setPreviewDoc({ doc: d, url: '', loading: true, error: null });
+    apiService.getDocumentoPubToken(relPath)
+      .then((data) => {
+        if (!data?.token) throw new Error('Sem token');
+        const pubUrl = window.location.origin + '/api/documentos-contrato/pub/' + data.token;
+        setPreviewDoc({ doc: d, url: pubUrl, loading: false, error: null });
+      })
+      .catch((e) => setPreviewDoc({ doc: d, url: '', loading: false, error: e.message }));
+  };
+
+  const handleDownloadDoc = (d) => {
+    const relPath = getDocRelPath(d);
+    if (!relPath) return;
+    apiService.downloadDocumentoContrato(relPath)
+      .then((blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = d.nome || relPath.split('/').pop();
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      })
+      .catch((e) => alert('Erro: ' + e.message));
+  };
+
+  // Mapa de documentos por SEI
+  const docsMap = useMemo(() => {
+    const map = new Map();
+    for (const d of docsContrato) {
+      if (d.numero) map.set(String(d.numero), d);
+    }
+    return map;
+  }, [docsContrato]);
+
+  const findDoc = (os) => {
+    const seiMatch = (os.OS_SEI || '').match(/\(([^)]+)\)/);
+    if (seiMatch && docsMap.has(seiMatch[1])) return docsMap.get(seiMatch[1]);
+    return null;
+  };
 
   const handleSort = (key) => {
     setSortConfig(prev => {
@@ -501,12 +571,13 @@ const OrdensServico = () => {
                   Data{sortConfig.key === "DATA_OS" ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
                 </th>
                 <th className="px-3 sm:px-6 py-3 text-left text-[9px] sm:text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Objeto</th>
+                <th className="px-3 sm:px-6 py-3 text-center text-[9px] sm:text-[10px] font-semibold text-slate-400 uppercase tracking-wider w-24">PDF</th>
               </tr>
             </thead>
             <tbody>
               {pagedOs.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-3 sm:px-6 py-8 text-center text-slate-400 text-xs">
+                  <td colSpan={7} className="px-3 sm:px-6 py-8 text-center text-slate-400 text-xs">
                     Nenhuma Ordem de Serviço encontrada
                   </td>
                 </tr>
@@ -520,8 +591,7 @@ const OrdensServico = () => {
                   return (
                     <tr
                       key={`${os.CONTRATO}-${os.DATA_OS}-${idx}`}
-                      onClick={() => setSelectedContratoId(os.CONTRATO)}
-                      className="group cursor-pointer transition-all duration-200 hover:bg-emerald-50/40"
+                      className="group transition-all duration-200 hover:bg-emerald-50/40"
                     >
                       <td className="px-3 py-3 w-8" onClick={function(e) { e.stopPropagation(); }}>
                         <input type="checkbox" checked={selectedIds.includes(getOsId(os))} onChange={function() { toggleSelect(getOsId(os)); }} className="w-3.5 h-3.5 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer" />
@@ -550,6 +620,28 @@ const OrdensServico = () => {
                       </td>
                       <td className="px-3 sm:px-6 py-3 sm:py-4 min-w-[160px] sm:min-w-0">
                         <ExpandableText text={os.OBJETO_EXIBICAO} maxLines={2} className="text-[10px] sm:text-[11px] text-slate-600 leading-snug" />
+                      </td>
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 text-center" onClick={function(e) { e.stopPropagation(); }}>
+                        {findDoc(os) ? (
+                          <div className="inline-flex items-center gap-1">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleVerDoc(findDoc(os)); }}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold text-emerald-700 hover:bg-emerald-50 border border-transparent hover:border-emerald-200 transition-all"
+                              title="Visualizar documento"
+                            >
+                              <Eye size={12} strokeWidth={2} />
+                              Ver
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleDownloadDoc(findDoc(os)); }}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold text-slate-500 hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all"
+                              title="Baixar arquivo"
+                            >
+                              <Download size={12} strokeWidth={2} />
+                              Baixar
+                            </button>
+                          </div>
+                        ) : <span className="text-xs text-slate-300">—</span>}
                       </td>
                     </tr>
                   );
@@ -582,8 +674,42 @@ const OrdensServico = () => {
         />
       )}
 
-      {/* ─── PDFs de OS baixados do SIDER ─────────── */}
-      <DocumentosContrato grupo="OS" titulo="Ordens de Serviço (PDF)" />
+      {/* ─── Prévia do PDF (tela cheia) ─────────── */}
+      {previewDoc && (
+        <div className="fixed inset-0 z-[99999] flex flex-col bg-white overflow-hidden">
+          <div className="flex items-center gap-2 px-4 sm:px-6 py-3 border-b border-gray-200 shrink-0">
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <FileText size={18} className="text-red-500 shrink-0" />
+              <h2 className="font-bold text-gray-800 truncate text-sm min-w-0">
+                {previewDoc.doc?.titulo || previewDoc.doc?.nome || 'Documento'}
+              </h2>
+              <span className="text-xs text-slate-400 uppercase shrink-0">.pdf</span>
+            </div>
+            <button onClick={() => setPreviewDoc(null)} className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors shrink-0 ml-auto" title="Fechar (Esc)">
+              <X size={18} />
+            </button>
+          </div>
+          <div className="flex-1 bg-[#f0f0f0] relative min-h-0">
+            {previewDoc.loading && (
+              <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-10">
+                <Loader2 size={28} className="animate-spin text-emerald-600" />
+              </div>
+            )}
+            {previewDoc.error && (
+              <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-10">
+                <p className="text-red-500 text-sm">Erro: {previewDoc.error}</p>
+              </div>
+            )}
+            {!previewDoc.loading && !previewDoc.error && (
+              <iframe
+                src={previewDoc.url}
+                className="w-full h-full border-0"
+                title={previewDoc.doc?.titulo || 'Documento'}
+              />
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

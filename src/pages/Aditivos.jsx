@@ -664,7 +664,7 @@ const Aditivos = () => {
                   const seiMatch = (a.N_DO_ADITIVO || '').match(/\(([^)]+)\)/);
                   const sei = seiMatch ? seiMatch[1] : '';
                   return (
-                    <tr key={`${a.CONTRATO}-${a.N_DO_ADITIVO}-${idx}`} onClick={() => setSelectedContratoId(buildContratoId(a))} className="group cursor-pointer transition-all duration-200 hover:bg-emerald-50/40">
+                    <tr key={`${a.CONTRATO}-${a.N_DO_ADITIVO}-${idx}`} className="group transition-all duration-200 hover:bg-emerald-50/40">
                       <td className="px-3 py-3 w-8" onClick={function(e) { e.stopPropagation(); }}>
                         <input type="checkbox" checked={selectedIds.includes(getAditivoId(a))} onChange={function() { toggleSelect(getAditivoId(a)); }} className="w-3.5 h-3.5 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer" />
                       </td>
