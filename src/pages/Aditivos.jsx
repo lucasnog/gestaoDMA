@@ -21,6 +21,7 @@ import Skeleton from '../components/ui/Skeleton';
 import Pagination from '../components/ui/Pagination';
 import ExportDialog from '../components/ui/ExportDialog';
 import ContractDetail from '../components/contract/ContractDetail';
+import DocumentosContrato from '../components/contract/DocumentosContrato';
 
 const TIPO_CORES = {
   'Readequação': { bg: 'from-blue-500 to-blue-600', shadow: 'shadow-blue-500/20', icon: FilePlus },
@@ -638,6 +639,10 @@ const Aditivos = () => {
         filename="aditivos"
         title="Exportar Aditivos"
       />
+
+      {/* ─── PDFs de readequações e retificações baixados do SIDER ─── */}
+      <DocumentosContrato grupo="readequacoes" titulo="Readequações (PDF)" />
+      <DocumentosContrato grupo="retificacoes" titulo="Retificações (PDF)" />
     </div>
   );
 };

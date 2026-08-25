@@ -4,6 +4,7 @@ import Card from '../components/ui/Card';
 import Skeleton from '../components/ui/Skeleton';
 import Pagination from '../components/ui/Pagination';
 import ContractDetail from '../components/contract/ContractDetail';
+import DocumentosContrato from '../components/contract/DocumentosContrato';
 import { getGestores } from '../services/api.service';
 import { useDashboardContext } from '../layouts/DashboardLayout';
 
@@ -239,6 +240,9 @@ const Gestores = () => {
           onClose={() => setSelectedContratoId(null)}
         />
       )}
+
+      {/* ─── PDFs de portarias baixados do SIDER ─────────── */}
+      <DocumentosContrato grupo="portarias" titulo="Portarias (PDF)" />
     </div>
   );
 };

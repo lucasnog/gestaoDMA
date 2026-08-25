@@ -18,6 +18,7 @@ import Pagination from '../components/ui/Pagination';
 import ExpandableText from '../components/ui/ExpandableText';
 import ExportDialog from '../components/ui/ExportDialog';
 import ContractDetail from '../components/contract/ContractDetail';
+import DocumentosContrato from '../components/contract/DocumentosContrato';
 import { useDashboardContext } from '../layouts/DashboardLayout';
 
 const TIPO_CORES = {
@@ -580,6 +581,9 @@ const OrdensServico = () => {
           onClose={() => setSelectedContratoId(null)}
         />
       )}
+
+      {/* ─── PDFs de OS baixados do SIDER ─────────── */}
+      <DocumentosContrato grupo="OS" titulo="Ordens de Serviço (PDF)" />
     </div>
   );
 };

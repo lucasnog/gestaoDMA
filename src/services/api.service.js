@@ -199,6 +199,23 @@ export const downloadMedicaoArquivo = async (relPath) => {
     return response.data;
 };
 
+// ════════════════ DOCUMENTOS DO CONTRATO (PDFs) ════════════════════
+
+export const getDocumentosContrato = async () => {
+    const response = await api.get('/documentos-contrato/arquivos');
+    return response.data;
+};
+
+export const getDocumentoPubToken = async (relPath) => {
+    const response = await api.get('/documentos-contrato/pub/token', { params: { path: relPath } });
+    return response.data;
+};
+
+export const downloadDocumentoContrato = async (relPath) => {
+    const response = await api.get('/documentos-contrato/download', { params: { path: relPath }, responseType: 'blob' });
+    return response.data;
+};
+
 // ÔöÇÔöÇÔöÇ GEMOCDOCS ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 
 export const getGemocdocsTables = async () => {

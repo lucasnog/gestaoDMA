@@ -22,6 +22,7 @@ import Skeleton from '../components/ui/Skeleton';
 import Pagination from '../components/ui/Pagination';
 import ExportDialog from '../components/ui/ExportDialog';
 import ContractDetail from '../components/contract/ContractDetail';
+import DocumentosContrato from '../components/contract/DocumentosContrato';
 
 const TIPO_CORES = {
   'Apostila': { bg: 'from-emerald-500 to-emerald-600', shadow: 'shadow-emerald-500/20', icon: BadgeCheck },
@@ -475,6 +476,9 @@ const Apostilas = () => {
         filename="apostilas"
         title="Exportar Apostilas"
       />
+
+      {/* ─── PDFs de apostilas baixados do SIDER ─────────── */}
+      <DocumentosContrato grupo="apostilas" titulo="Apostilas (PDF)" />
     </div>
   );
 };
