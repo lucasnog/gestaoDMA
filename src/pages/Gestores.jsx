@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { UserCheck, Users, ClipboardList } from 'lucide-react';
+import { UserCheck, Users, ClipboardList, Download, Eye, X, Loader2, FileText } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Skeleton from '../components/ui/Skeleton';
 import Pagination from '../components/ui/Pagination';
 import ContractDetail from '../components/contract/ContractDetail';
-import DocumentosContrato from '../components/contract/DocumentosContrato';
-import { getGestores } from '../services/api.service';
+import { getGestores, getDocumentosContrato, getDocumentoPubToken, downloadDocumentoContrato } from '../services/api.service';
 import { useDashboardContext } from '../layouts/DashboardLayout';
 
 const PAGE_SIZE = 10;
@@ -59,6 +58,82 @@ const Gestores = () => {
   const [loading, setLoading] = useState(true);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [selectedContratoId, setSelectedContratoId] = useState(null);
+  const [docsPortarias, setDocsPortarias] = useState([]);
+  const [previewDoc, setPreviewDoc] = useState(null);
+
+  // Carrega PDFs de portarias do contrato 61/2023
+  useEffect(() => {
+    let active = true;
+    getDocumentosContrato()
+      .then((data) => {
+        if (!active) return;
+        setDocsPortarias((data?.documentos || []).filter(d => d.grupo === 'portarias'));
+      })
+      .catch(() => { if (active) setDocsPortarias([]); });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!previewDoc) return;
+    const handler = (e) => { if (e.key === 'Escape') setPreviewDoc(null); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [previewDoc]);
+
+  const getDocRelPath = (d) => d?.arquivo ? String(d.arquivo).replace(/\\/g, '/') : null;
+
+  const handleVerDoc = (d) => {
+    const relPath = getDocRelPath(d);
+    if (!relPath) return;
+    setPreviewDoc({ doc: d, url: '', loading: true, error: null });
+    getDocumentoPubToken(relPath)
+      .then((data) => {
+        if (!data?.token) throw new Error('Sem token');
+        const pubUrl = window.location.origin + '/api/documentos-contrato/pub/' + data.token;
+        setPreviewDoc({ doc: d, url: pubUrl, loading: false, error: null });
+      })
+      .catch((e) => setPreviewDoc({ doc: d, url: '', loading: false, error: e.message }));
+  };
+
+  const handleDownloadDoc = (d) => {
+    const relPath = getDocRelPath(d);
+    if (!relPath) return;
+    downloadDocumentoContrato(relPath)
+      .then((blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = d.nome || relPath.split('/').pop();
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      })
+      .catch((e) => alert('Erro: ' + e.message));
+  };
+
+  // Mapa de portarias PDF por SEI e por título
+  const docsPortariasMap = useMemo(() => {
+    const map = new Map();
+    for (const d of docsPortarias) {
+      if (d.numero) map.set(String(d.numero), d);
+      const numMatch = (d.titulo || '').match(/(\d+)[-/](\d{4})/);
+      if (numMatch) map.set(`${numMatch[1]}/${numMatch[2]}`, d);
+    }
+    return map;
+  }, [docsPortarias]);
+
+  const findDocPortaria = (grupo) => {
+    const m = (grupo.portaria || '').match(/\(([^)]+)\)/);
+    const sei = m ? m[1] : (grupo.portaria || '');
+    if (docsPortariasMap.has(sei)) return docsPortariasMap.get(sei);
+    const numMatch = (grupo.portaria || '').match(/(\d+)[-/](\d{4})/);
+    if (numMatch) {
+      const key = `${numMatch[1]}/${numMatch[2]}`;
+      if (docsPortariasMap.has(key)) return docsPortariasMap.get(key);
+    }
+    return null;
+  };
 
   const buildParams = useCallback((s, limit) => {
     const params = { page: 1, limit: limit || PAGE_SIZE };
@@ -170,6 +245,7 @@ const Gestores = () => {
           <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50/50">
+                <th className="px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-left text-slate-400">PDF</th>
                 <th className="px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-left text-slate-400">Portaria SEI</th>
                 <th className="px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-left text-slate-400">Vigência</th>
                 <th className="px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-left text-slate-400">Pessoas</th>
@@ -179,21 +255,45 @@ const Gestores = () => {
               {loading ? (
                 Array.from({ length: 8 }).map((_, i) => (
                   <tr key={i} className="border-b border-slate-50">
-                    {Array.from({ length: 3 }).map((_, j) => (
+                    {Array.from({ length: 4 }).map((_, j) => (
                       <td key={j} className="px-4 py-3"><Skeleton className="h-4" /></td>
                     ))}
                   </tr>
                 ))
               ) : gruposPorPortaria.length === 0 ? (
                 <tr>
-                  <td colSpan={3} className="px-4 py-12 text-center text-slate-400">
+                  <td colSpan={4} className="px-4 py-12 text-center text-slate-400">
                     <UserCheck size={32} className="mx-auto mb-2 opacity-30" />
                     Nenhum gestor/fiscal encontrado
                   </td>
                 </tr>
               ) : (
-                pagedGrupos.map((grupo, idx) => (
+                pagedGrupos.map((grupo, idx) => {
+                  const doc = findDocPortaria(grupo);
+                  return (
                   <tr key={idx} className="border-b border-slate-50 align-top">
+                    <td className="px-4 py-3 text-center whitespace-nowrap">
+                      {doc ? (
+                        <div className="inline-flex items-center gap-1">
+                          <button
+                            onClick={() => handleVerDoc(doc)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold text-emerald-700 hover:bg-emerald-50 border border-transparent hover:border-emerald-200 transition-all"
+                            title="Visualizar portaria"
+                          >
+                            <Eye size={12} strokeWidth={2} />
+                            Ver
+                          </button>
+                          <button
+                            onClick={() => handleDownloadDoc(doc)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold text-slate-500 hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all"
+                            title="Baixar portaria"
+                          >
+                            <Download size={12} strokeWidth={2} />
+                            Baixar
+                          </button>
+                        </div>
+                      ) : <span className="text-[11px] text-slate-300">—</span>}
+                    </td>
                     <td className="px-4 py-3 text-[10px] text-slate-500 whitespace-nowrap">
                       {(() => {
                         const m = grupo.portaria?.match(/\(([^)]+)\)/);
@@ -224,7 +324,8 @@ const Gestores = () => {
                       </div>
                     </td>
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -241,8 +342,42 @@ const Gestores = () => {
         />
       )}
 
-      {/* ─── PDFs de portarias baixados do SIDER ─────────── */}
-      <DocumentosContrato grupo="portarias" titulo="Portarias (PDF)" />
+      {/* ─── Prévia da portaria (tela cheia) ─────────── */}
+      {previewDoc && (
+        <div className="fixed inset-0 z-[99999] flex flex-col bg-white overflow-hidden">
+          <div className="flex items-center gap-2 px-4 sm:px-6 py-3 border-b border-gray-200 shrink-0">
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <FileText size={18} className="text-red-500 shrink-0" />
+              <h2 className="font-bold text-gray-800 truncate text-sm min-w-0">
+                {previewDoc.doc?.titulo || previewDoc.doc?.nome || 'Portaria'}
+              </h2>
+              <span className="text-xs text-slate-400 uppercase shrink-0">.pdf</span>
+            </div>
+            <button onClick={() => setPreviewDoc(null)} className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors shrink-0 ml-auto" title="Fechar (Esc)">
+              <X size={18} />
+            </button>
+          </div>
+          <div className="flex-1 bg-[#f0f0f0] relative min-h-0">
+            {previewDoc.loading && (
+              <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-10">
+                <Loader2 size={28} className="animate-spin text-emerald-600" />
+              </div>
+            )}
+            {previewDoc.error && (
+              <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-10">
+                <p className="text-red-500 text-sm">Erro: {previewDoc.error}</p>
+              </div>
+            )}
+            {!previewDoc.loading && !previewDoc.error && (
+              <iframe
+                src={previewDoc.url}
+                className="w-full h-full border-0"
+                title={previewDoc.doc?.titulo || 'Portaria'}
+              />
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
