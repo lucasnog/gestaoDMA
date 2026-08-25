@@ -461,11 +461,23 @@ const detailMap = React.useMemo(() => {
     // Filtro por período selecionado no gráfico
     if (selectedMes) {
       list = list.filter(m => {
-        const dt = m.dtInimedicao || m.dtFimmedicao || '';
+        // Converte DD/MM/AAAA -> AAAA-MM-DD para comparar com o período do gráfico
+        const dtIni = m.dtInimedicao || '';
+        const dtFim = m.dtFimmedicao || '';
+        const toIso = (d) => {
+          if (!d) return '';
+          if (/^\d{2}\/\d{2}\/\d{4}/.test(d)) {
+            const [dd, mm, yyyy] = d.split('/');
+            return `${yyyy}-${mm}-${dd}`;
+          }
+          return d;
+        };
+        const iso = toIso(dtIni) || toIso(dtFim);
+        if (!iso) return false;
         if (selectedMes.length === 4) {
-          return dt.startsWith(selectedMes);
+          return iso.startsWith(selectedMes);
         }
-        return dt.startsWith(selectedMes.substring(0, 7));
+        return iso.startsWith(selectedMes.substring(0, 7));
       });
     }
     if (sortConfig.key && sortConfig.direction) {
