@@ -503,12 +503,13 @@ const detailMap = React.useMemo(() => {
           mesFiltro = `${String(yyyy).trim()}-${String(mm).padStart(2, '0')}`;
         }
       } else {
-        const mesIdx = meses.findIndex(m => termo.includes(m));
+        // Correspondência do mês por prefixo do nome (ex: "j" -> janeiro/junho/julho, "ja" -> janeiro)
+        const mesIdx = meses.findIndex(m => m.startsWith(termo) || m.includes(termo));
         if (mesIdx >= 0) {
           const mm = String(mesIdx + 1).padStart(2, '0');
           const yyyyMatch = termo.match(/\d{4}/);
           mesFiltro = yyyyMatch ? `${yyyyMatch[0]}-${mm}` : null;
-          // Se só "janeiro", filtra por -01 (qualquer ano)
+          // Se só "janeiro"/"jan", filtra por -MM (qualquer ano)
           if (!mesFiltro && yyyyMatch === null) mesFiltro = `-${mm}`;
         } else if (/^\d{4}$/.test(termo)) {
           mesFiltro = termo; // ano
