@@ -167,25 +167,38 @@ const Medicoes = () => {
     setTablePage(1);
   }, [contratos, itemsPerPage]);
 
-  // Busca as medições no banco de dados (getContratoDetails)
+  // Busca as medições no banco de dados (getContratoDetails).
+  // O meta.json é usado APENAS para obter o caminho do arquivo (Ver/Baixar).
   useEffect(() => {
     let active = true;
     setMedicoesLoading(true);
-    apiService.getContratoDetails(CONTRATO_ALVO.id)
-      .then((details) => {
+    Promise.all([
+      apiService.getMedicoesArquivos().catch(() => null),
+      apiService.getContratoDetails(CONTRATO_ALVO.id).catch(() => null),
+    ])
+      .then(([meta, details]) => {
         if (!active) return;
+        const metaList = meta?.medicoes || [];
+        const arquivoMap = {};
+        metaList.forEach(m => {
+          if (m?.nuMedicao && m?.arquivo) arquivoMap[String(m.nuMedicao)] = String(m.arquivo).replace(/\\/g, '/');
+        });
         const rows = (details && Array.isArray(details.medicoes)) ? details.medicoes : [];
-        const mapped = rows.map(m => ({
-          nuMedicao: m.nr_medicao,
-          deMedicao: m.descricao || `Medição ${m.nr_medicao}`,
-          dtInimedicao: m.dt_periodo_inicio || '',
-          dtFimmedicao: m.dt_periodo_fim || '',
-          dtMedicao: m.dt_medicao || '',
-          vlMedicao: m.vl_total ?? (parseFloat(m.vl_pi || 0) + parseFloat(m.vl_ra || 0)),
-          vl_pi: m.vl_pi,
-          vl_ra: m.vl_ra,
-          vl_total: m.vl_total ?? (parseFloat(m.vl_pi || 0) + parseFloat(m.vl_ra || 0)),
-        }));
+        const mapped = rows.map(m => {
+          const nu = String(m.nr_medicao || '');
+          return {
+            nuMedicao: m.nr_medicao,
+            deMedicao: m.descricao || `Medição ${m.nr_medicao}`,
+            dtInimedicao: m.dt_periodo_inicio || '',
+            dtFimmedicao: m.dt_periodo_fim || '',
+            dtMedicao: m.dt_medicao || '',
+            vlMedicao: m.vl_total ?? (parseFloat(m.vl_pi || 0) + parseFloat(m.vl_ra || 0)),
+            vl_pi: m.vl_pi,
+            vl_ra: m.vl_ra,
+            vl_total: m.vl_total ?? (parseFloat(m.vl_pi || 0) + parseFloat(m.vl_ra || 0)),
+            arquivo: arquivoMap[nu] || null,
+          };
+        });
         setMedicoesList(mapped);
       })
       .catch(() => { if (active) setMedicoesList([]); })

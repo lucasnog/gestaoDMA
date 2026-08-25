@@ -103,17 +103,17 @@ const Dashboard = () => {
             className="p-4 sm:p-5 lg:p-6 border border-emerald-100/50 shadow-sm hover:shadow-card transition-all duration-300 group cursor-pointer"
             onClick={kpi.onClick}
           >
-            <div className="flex items-start justify-between mb-3 sm:mb-4">
+            <div className="flex items-center justify-between mb-3 sm:mb-4">
               <div
-                className={`w-8 h-8 sm:w-10 sm:h-10 lg:w-11 lg:h-11 rounded-xl bg-gradient-to-br ${kpi.color} flex items-center justify-center shadow-sm ${kpi.shadow} group-hover:scale-110 transition-transform duration-300`}
+                className={`w-8 h-8 sm:w-10 sm:h-10 lg:w-11 lg:h-11 rounded-xl bg-gradient-to-br ${kpi.color} flex items-center justify-center shadow-sm ${kpi.shadow} group-hover:scale-110 transition-transform duration-300 shrink-0`}
               >
                 <kpi.icon size={16} className="text-white" strokeWidth={2} />
               </div>
-              <div className="ml-3">
+              <div className="ml-3 min-w-0 flex-1 text-right">
                 <p className="text-[9px] sm:text-[10px] lg:text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
                   {kpi.label}
                 </p>
-                <p className="text-xs sm:text-sm lg:text-xl font-bold text-slate-900 tracking-tight whitespace-nowrap overflow-hidden text-ellipsis">
+                <p className="text-xs sm:text-sm lg:text-xl font-bold text-slate-900 tracking-tight break-words leading-snug">
                   {kpi.value}
                 </p>
               </div>
