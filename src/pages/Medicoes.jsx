@@ -11,7 +11,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
-import { formatCurrency } from '../utils/formatters';
+import { formatCurrency, formatDate } from '../utils/formatters';
 import * as apiService from '../services/api.service';
 import Card from '../components/ui/Card';
 import Skeleton from '../components/ui/Skeleton';
@@ -711,8 +711,8 @@ const detailMap = React.useMemo(() => {
                 <th onClick={() => handleSort('nuMedicao')} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none w-16">
                   Nº{sortConfig.key === 'nuMedicao' ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
                 </th>
-                <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-                  Medição
+                <th onClick={() => handleSort('dtMedicao')} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none">
+                  Data Medição{sortConfig.key === 'dtMedicao' ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
                 </th>
                 <th onClick={() => handleSort('dtInimedicao')} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none">
                   Período{sortConfig.key === 'dtInimedicao' ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
@@ -765,12 +765,12 @@ const detailMap = React.useMemo(() => {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <span className="text-sm text-slate-700">{m.deMedicao || `Medição ${m.nuMedicao}`}</span>
+                        <span className="text-sm text-slate-700">{m.dtMedicao ? formatDate(m.dtMedicao) : '—'}</span>
                       </td>
                       <td className="px-4 py-3">
                         {m.dtInimedicao || m.dtFimmedicao ? (
                           <span className="text-xs text-slate-400">
-                            {m.dtInimedicao ? `${m.dtInimedicao} a ` : ''}{m.dtFimmedicao || ''}
+                            {m.dtInimedicao ? `${formatDate(m.dtInimedicao)} a ` : ''}{m.dtFimmedicao ? formatDate(m.dtFimmedicao) : ''}
                           </span>
                         ) : <span className="text-[11px] text-slate-400">—</span>}
                       </td>
