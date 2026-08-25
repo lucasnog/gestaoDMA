@@ -90,7 +90,7 @@ const Medicoes = () => {
 
   const handleSort = (key) => {
     setSortConfig(prev => {
-      if (prev.key !== key) return { key, direction: key.includes('data') ? 'desc' : 'asc' };
+      if (prev.key !== key) return { key, direction: (key.includes('data') || key.includes('Data') || key.includes('dtMedicao') || key.includes('dtInimedicao') || key.includes('dtFimmedicao')) ? 'desc' : 'asc' };
       if (prev.direction === 'asc') return { key, direction: 'desc' };
       if (prev.direction === 'desc') return { key, direction: null };
       return { key: null, direction: null };
