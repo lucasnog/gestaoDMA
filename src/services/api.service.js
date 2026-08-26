@@ -233,6 +233,23 @@ export const downloadDocumentoContrato = async (relPath) => {
     return response.data;
 };
 
+// ============ GESTÃO DMA (Controle de Pagamentos) ============
+
+export const getControlePagamentos = async (params = {}) => {
+    const response = await api.get('/gestaodma/controle-pagamento', { params });
+    return response.data;
+};
+
+export const getControlePagamentoResumo = async () => {
+    const response = await api.get('/gestaodma/controle-pagamento/resumo');
+    return response.data;
+};
+
+export const getControlePagamentoTotais = async () => {
+    const response = await api.get('/gestaodma/controle-pagamento/totais');
+    return response.data;
+};
+
 // ÔöÇÔöÇÔöÇ GEMOCDOCS ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 
 export const getGemocdocsTables = async () => {

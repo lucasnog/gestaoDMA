@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/auth.store';
 
@@ -15,24 +15,35 @@ const Login = () => {
   // crash "insertBefore" do React).
   const navigatedRef = useRef(false);
 
+  const goHome = useCallback(() => {
+    if (navigatedRef.current) return;
+    navigatedRef.current = true;
+    navigate('/', { replace: true });
+  }, [navigate]);
+
   // Verifica resultado de redirect (login alternativo) na montagem
   const checkRedirectResult = useAuthStore((s) => s.checkRedirectResult);
   useEffect(() => {
     checkRedirectResult().then((result) => {
-      if (result && !navigatedRef.current) {
-        navigatedRef.current = true;
-        navigate('/', { replace: true });
-      }
+      if (result) goHome();
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Se ja estiver logado, redireciona pro dashboard
   useEffect(() => {
-    if (isAuthenticated && !navigatedRef.current) {
-      navigatedRef.current = true;
-      navigate('/', { replace: true });
+    if (isAuthenticated) goHome();
+  }, [isAuthenticated]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Navegação determinística: o clique navega assim que o login conclui,
+  // sem depender apenas do efeito reativo (que às vezes não disparava).
+  const handleGoogleLogin = async () => {
+    try {
+      const result = await loginGoogle();
+      if (result) goHome();
+    } catch (err) {
+      // Erro já é tratado/exibido pelo store (state.error)
     }
-  }, [isAuthenticated, navigate]);
+  };
 
   return (
     <div className="relative h-screen overflow-hidden bg-gradient-to-br from-emerald-900 via-emerald-700 to-slate-900">
@@ -72,7 +83,7 @@ const Login = () => {
 
             {/* Google Login Button (popup) — padrão, funciona melhor */}
             <button
-              onClick={loginGoogle}
+              onClick={handleGoogleLogin}
               disabled={loading}
               className={`
                 w-full flex items-center justify-center gap-3 px-4 sm:px-6 py-3 sm:py-3.5 rounded-xl font-semibold text-sm

@@ -1,199 +1,171 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, Fragment } from 'react';
 import {
   Building2,
   FileText,
-  ArrowRight,
-  Briefcase,
-  ChevronDown,
-  Download,
-  LayoutGrid,
-  List
+  Ruler,
+  DollarSign,
+  Download
 } from 'lucide-react';
 import { formatCurrency } from '../utils/formatters';
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import Skeleton from '../components/ui/Skeleton';
 import Pagination from '../components/ui/Pagination';
-import ContractDetail from '../components/contract/ContractDetail';
 import ExportDialog from '../components/ui/ExportDialog';
-import { useDashboardContext } from '../layouts/DashboardLayout';
+import { getControlePagamentos, getControlePagamentoResumo } from '../services/api.service';
+
+const EMPRESA_BADGE = {
+  Dynatest: 'success',
+  STE: 'info',
+  HS: 'warning',
+};
+
+const ORDEM_EMPRESAS = ['Dynatest', 'STE', 'HS'];
 
 const Empresas = () => {
-  const { contratos, loading, search } = useDashboardContext();
-  const [selectedContratoId, setSelectedContratoId] = useState(null);
-  const [selectedEmpresa, setSelectedEmpresa] = useState(null);
-  const [exportOpen, setExportOpen] = useState(false);
-  const [viewMode, setViewMode] = useState('cards');
-  const [sortConfig, setSortConfig] = useState({ key: null, direction: null });
+  const [pagamentos, setPagamentos] = useState([]);
+  const [resumoPag, setResumoPag] = useState(null);
+  const [pagLoading, setPagLoading] = useState(true);
+  const [empresasSel, setEmpresasSel] = useState([]);
   const [tablePage, setTablePage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [exportOpen, setExportOpen] = useState(false);
 
-  // Agrupar contratos por empresa
-  const empresasMap = useMemo(() => {
-    const map = {};
-    contratos.forEach((c) => {
-      const key = c.razao_social || 'Não informada';
-      if (!map[key]) {
-        map[key] = {
-          razao_social: key,
-          contratos: [],
-          totalInvestido: 0,
-          totalPago: 0,
-        };
+  useEffect(() => {
+    let ativo = true;
+    const carregar = async () => {
+      try {
+        const [lista, resumo] = await Promise.all([
+          getControlePagamentos(),
+          getControlePagamentoResumo(),
+        ]);
+        if (!ativo) return;
+        setPagamentos(lista?.pagamentos || []);
+        setResumoPag(resumo);
+      } catch (err) {
+        console.error('[Empresas] Erro ao carregar controle de pagamentos:', err);
+      } finally {
+        if (ativo) setPagLoading(false);
       }
-      map[key].contratos.push(c);
-      map[key].totalInvestido += parseFloat(c.vl_total || 0);
-      map[key].totalPago += parseFloat(c.vl_total_pago || 0);
-    });
-    return map;
-  }, [contratos]);
+    };
+    carregar();
+    return () => { ativo = false; };
+  }, []);
 
-  const empresasList = useMemo(() => {
-    let list = Object.values(empresasMap);
-    if (search) {
-      const s = search.toLowerCase();
-      list = list.filter(e =>
-        e.razao_social.toLowerCase().includes(s) ||
-        e.contratos.some(c =>
-          String(c.cd_contrato || '').toLowerCase().includes(s) ||
-          String(c.objeto || '').toLowerCase().includes(s) ||
-          String(c.nu_bloco || '').toLowerCase().includes(s)
-        )
-      );
+  useEffect(() => { setTablePage(1); }, [empresasSel, itemsPerPage]);
+
+  const filtrados = useMemo(() => {
+    let list = pagamentos;
+    if (empresasSel.length > 0) {
+      const set = new Set(empresasSel);
+      list = list.filter(p => set.has(p.empresa));
     }
-    return list.sort((a, b) => b.totalInvestido - a.totalInvestido);
-  }, [empresasMap, search]);
+    return list;
+  }, [pagamentos, empresasSel]);
 
-  const totalEmpresas = empresasList.length;
-  const totalContratos = empresasList.reduce((acc, e) => acc + e.contratos.length, 0);
-
-  // Flat contracts list (one row per contract with company name)
-  const flatContratos = useMemo(() => {
-    const rows = [];
-    empresasList.forEach(e => {
-      e.contratos.forEach(c => {
-        rows.push({ ...c, razao_social: e.razao_social });
+  const grupos = useMemo(() => {
+    const map = {};
+    filtrados.forEach(p => {
+      const chave = p.nr_medicao;
+      if (!map[chave]) map[chave] = [];
+      map[chave].push(p);
+    });
+    return Object.keys(map)
+      .sort((a, b) => parseInt(a) - parseInt(b))
+      .map(nr => {
+        const linhas = map[nr].sort((a, b) => {
+          const ia = ORDEM_EMPRESAS.indexOf(a.empresa);
+          const ib = ORDEM_EMPRESAS.indexOf(b.empresa);
+          return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+        });
+        const totalPago = linhas.reduce((s, p) => s + (p.vl_pago || 0), 0);
+        const acumulado = linhas.reduce((m, p) => Math.max(m, p.vl_acumulado || 0), 0);
+        return {
+          nr,
+          linhas,
+          periodo: linhas[0]?.periodo || '—',
+          dt_periodo_inicio: linhas[0]?.dt_periodo_inicio || '',
+          dt_periodo_fim: linhas[0]?.dt_periodo_fim || '',
+          dt_liberacao: linhas[0]?.dt_liberacao || '—',
+          saldo: linhas[0]?.saldo_contrato || 0,
+          totalPago,
+          acumulado,
+        };
       });
-    });
-    return rows;
-  }, [empresasList]);
+  }, [filtrados]);
 
-  const handleSort = (key) => {
-    setSortConfig(prev => {
-      if (prev.key !== key) return { key, direction: 'asc' };
-      if (prev.direction === 'asc') return { key, direction: 'desc' };
-      return { key: null, direction: null };
-    });
-    setTablePage(1);
+  const totalTablePages = Math.max(1, Math.ceil(grupos.length / itemsPerPage));
+  const safeTablePage = Math.min(tablePage, totalTablePages);
+  const pagedGrupos = grupos.slice((safeTablePage - 1) * itemsPerPage, safeTablePage * itemsPerPage);
+
+  // Valor total do contrato para calcular % de execução
+  // totalContrato = acumulado final + saldo atual (do próprio conjunto de pagamentos)
+  const totais = useMemo(() => {
+    const totalPago = filtrados.reduce((s, p) => s + (p.vl_pago || 0), 0);
+    const acumulado = filtrados.reduce((m, p) => Math.max(m, p.vl_acumulado || 0), 0);
+    const saldo = grupos.length ? grupos[grupos.length - 1].saldo : 0;
+    return { totalPago, acumulado, saldo, totalContrato: acumulado + saldo };
+  }, [filtrados, grupos]);
+
+  const formatarPeriodo = (g) => {
+    if (g.dt_periodo_inicio && g.dt_periodo_fim) return `${g.dt_periodo_inicio} a ${g.dt_periodo_fim}`;
+    return g.periodo;
   };
 
-  useEffect(() => { setTablePage(1); }, [itemsPerPage]);
-
-  const sortedFlat = useMemo(() => {
-    if (!sortConfig.key || !sortConfig.direction) return flatContratos;
-    return [...flatContratos].sort((a, b) => {
-      let aVal = a[sortConfig.key];
-      let bVal = b[sortConfig.key];
-      if (aVal == null) return 1;
-      if (bVal == null) return -1;
-      const aNum = parseFloat(aVal);
-      const bNum = parseFloat(bVal);
-      if (!isNaN(aNum) && !isNaN(bNum)) {
-        return sortConfig.direction === 'asc' ? aNum - bNum : bNum - aNum;
-      }
-      aVal = String(aVal).toLowerCase();
-      bVal = String(bVal).toLowerCase();
-      return sortConfig.direction === 'asc'
-        ? aVal.localeCompare(bVal, 'pt-BR')
-        : bVal.localeCompare(aVal, 'pt-BR');
-    });
-  }, [flatContratos, sortConfig]);
-
-  const totalTablePages = Math.max(1, Math.ceil(sortedFlat.length / itemsPerPage));
-  const safeTablePage = Math.min(tablePage, totalTablePages);
-  const pagedFlat = sortedFlat.slice((safeTablePage - 1) * itemsPerPage, safeTablePage * itemsPerPage);
-
-  // Export
+  // Exportação (uma linha por pagamento)
   const exportColumns = useMemo(() => [
-    { key: 'razao_social', label: 'Empresa' },
-    { key: 'nu_bloco', label: 'Bloco' },
-    { key: 'cd_contrato', label: 'Contrato' },
-    { key: 'lote', label: 'Lote' },
-    { key: 'objeto', label: 'Objeto' },
-    { key: 'segmento', label: 'Segmento' },
-    { key: 'situacao_atual', label: 'Status' },
-    { key: 'vl_total', label: 'Valor do Contrato' },
-    { key: 'vl_total_medido', label: 'Total Medido' },
-    { key: 'perc_pago', label: 'Avanço Financeiro' },
+    { key: 'nr_medicao', label: 'Medição' },
+    { key: 'empresa', label: 'Empresa' },
+    { key: 'periodo', label: 'Período' },
+    { key: 'nr_nf', label: 'NF' },
+    { key: 'vl_pago', label: 'Valor Pago' },
+    { key: 'perc', label: '% Med.' },
+    { key: 'dt_liberacao', label: 'Liberação' },
   ], []);
 
   const exportData = useMemo(() => {
-    return flatContratos.map(c => {
-      const perc = parseFloat(c.vl_total || 0) > 0
-        ? ((parseFloat(c.vl_total_medido || 0) / parseFloat(c.vl_total || 0)) * 100).toFixed(1) + '%'
-        : '0%';
+    return filtrados.map(p => {
+      const grupo = grupos.find(g => g.nr === p.nr_medicao);
+      const perc = grupo?.totalPago > 0 ? ((p.vl_pago || 0) / grupo.totalPago) * 100 : 0;
       return {
-        razao_social: c.razao_social,
-        nu_bloco: c.nu_bloco || '',
-        cd_contrato: c.cd_contrato || '',
-        lote: c.lote || '',
-        objeto: c.objeto || '',
-        segmento: c.segmento || '',
-        situacao_atual: c.situacao_atual || '',
-        vl_total: c.vl_total || 0,
-        vl_total_medido: c.vl_total_medido || 0,
-        perc_pago: perc,
+        nr_medicao: p.nr_medicao ? `${p.nr_medicao}ª` : '',
+        empresa: p.empresa || '',
+        periodo: p.periodo || '',
+        nr_nf: p.nr_nf || '',
+        vl_pago: p.vl_pago || 0,
+        perc: perc.toFixed(1) + '%',
+        dt_liberacao: p.dt_liberacao || '',
       };
     });
-  }, [flatContratos]);
+  }, [filtrados, grupos]);
 
-  function sortArrow(key) {
-    if (sortConfig.key !== key) return '';
-    return sortConfig.direction === 'asc' ? ' ▲' : ' ▼';
-  }
-
-  const kpiCards = [
-    {
-      label: 'Empresas Contratadas',
-      value: totalEmpresas,
-      icon: Building2,
-      color: 'from-emerald-600 to-emerald-700',
-      shadow: 'shadow-emerald-500/20',
-    },
-    {
-      label: 'Total de Contratos',
-      value: totalContratos,
-      icon: FileText,
-      color: 'from-emerald-600 to-emerald-500',
-      shadow: 'shadow-emerald-500/25',
-    },
-    {
-      label: 'Média por Empresa',
-      value: totalEmpresas > 0 ? (totalContratos / totalEmpresas).toFixed(1) : '0',
-      icon: Briefcase,
-      color: 'from-teal-500 to-emerald-600',
-      shadow: 'shadow-teal-500/20',
-      sub: 'contratos/empresa',
-    },
-  ];
+  const toggleEmpresa = (emp) => {
+    setEmpresasSel(prev =>
+      prev.includes(emp) ? prev.filter(e => e !== emp) : [...prev, emp]
+    );
+  };
 
   return (
     <div className="space-y-8">
-      {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
         <div className="min-w-0">
           <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Empresas</h1>
           <p className="text-xs sm:text-sm text-slate-400 mt-0.5 sm:mt-1">
-            Fornecedoras e contratadas da carteira
+            Controle de pagamentos do contrato 61/2023 — Gestão DMA
           </p>
         </div>
         <div className="flex items-center gap-2 sm:gap-3 flex-wrap shrink-0">
-          <span className="text-[11px] font-semibold text-slate-400 bg-slate-100 px-2.5 py-1 rounded-lg">
-            {viewMode === 'cards' ? `${totalEmpresas} empresas · ${totalContratos} contratos` : `${sortedFlat.length} contratos`}
-          </span>
+          {empresasSel.length > 0 && (
+            <button
+              onClick={() => setEmpresasSel([])}
+              className="flex items-center gap-1 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-[11px] font-semibold text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+            >
+              Limpar filtros
+            </button>
+          )}
           <button
             onClick={() => setExportOpen(true)}
-            disabled={loading || exportData.length === 0}
+            disabled={pagLoading || exportData.length === 0}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <Download size={14} strokeWidth={2} />
@@ -202,247 +174,132 @@ const Empresas = () => {
         </div>
       </div>
 
-      {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 lg:gap-5">
-        {kpiCards.map((kpi, idx) => (
-          <Card key={idx} className="p-3 sm:p-4 lg:p-5 border border-emerald-100/50 shadow-sm hover:shadow-card transition-all duration-300 group">
-            <div className="flex items-start justify-between mb-3 sm:mb-4">
-              <div className={`w-8 h-8 sm:w-9 sm:h-9 lg:w-10 lg:h-10 rounded-xl bg-gradient-to-br ${kpi.color} flex items-center justify-center shadow-sm ${kpi.shadow} group-hover:scale-110 transition-transform duration-300`}>
-                <kpi.icon size={14} className="text-white" strokeWidth={2} />
+        {(resumoPag?.empresas || []).map((e) => {
+          const selecionada = empresasSel.includes(e.empresa);
+          return (
+            <Card
+              key={e.empresa}
+              className={`p-4 sm:p-5 border border-emerald-100/50 hover:shadow-card transition-all duration-200 cursor-pointer ${
+                selecionada
+                  ? 'ring-2 ring-emerald-600/30 border-emerald-600/40 bg-emerald-50/30'
+                  : ''
+              }`}
+              onClick={() => toggleEmpresa(e.empresa)}
+            >
+              <div className="flex items-start justify-between mb-2 sm:mb-3">
+                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-50 border border-emerald-200/60 flex items-center justify-center">
+                  <Building2 size={15} className="text-emerald-600" strokeWidth={2} />
+                </div>
               </div>
-            </div>
-            <p className="text-[9px] sm:text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">{kpi.label}</p>
-            <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900 tracking-tight">{kpi.value}</p>
-            {kpi.sub && <p className="text-[9px] sm:text-[10px] text-slate-400 mt-0.5 sm:mt-1">{kpi.sub}</p>}
-          </Card>
-        ))}
+              <p className="text-sm sm:text-base font-bold text-slate-900 mb-1">{e.empresa}</p>
+              <p className="text-lg sm:text-xl font-bold text-emerald-600 tracking-tight">{formatCurrency(e.total_pago)}</p>
+              <div className="flex items-center gap-3 mt-1 sm:mt-2 text-[10px] text-slate-400">
+                <span className="flex items-center gap-1"><FileText size={10} strokeWidth={2} /> {e.total_medicoes} medições</span>
+                <span>Saldo: {formatCurrency(e.saldo_atual)}</span>
+              </div>
+            </Card>
+          );
+        })}
       </div>
 
-      {/* View Toggle */}
-      <div className="flex justify-end">
-        <div className="flex items-center bg-slate-100 rounded-xl p-0.5">
-          <button
-            onClick={() => setViewMode('cards')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all ${
-              viewMode === 'cards' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            <LayoutGrid size={14} strokeWidth={2} />
-            <span className="hidden sm:inline">Cards</span>
-          </button>
-          <button
-            onClick={() => setViewMode('table')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all ${
-              viewMode === 'table' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            <List size={14} strokeWidth={2} />
-            <span className="hidden sm:inline">Tabela</span>
-          </button>
+      <Card padding="p-0" className="overflow-hidden">
+        <div className="px-6 py-4 border-b border-emerald-100/30 bg-emerald-50/30 flex items-center gap-2.5 flex-wrap">
+          <DollarSign size={16} className="text-emerald-600" strokeWidth={2} />
+          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Medições</span>
+          <span className="text-[10px] font-medium text-slate-400 ml-2">
+            {grupos.length} medições{empresasSel.length > 0 ? ` · ${empresasSel.join(', ')}` : ' · Todas as empresas'}
+          </span>
         </div>
-      </div>
 
-      {loading ? (
-        viewMode === 'cards' ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 lg:gap-5">
-            {[...Array(4)].map((_, i) => (
-              <Card key={i} className="p-4 sm:p-6">
-                <Skeleton className="h-6 w-48 mb-4" />
-                <Skeleton className="h-4 w-32 mb-2" />
-                <Skeleton className="h-4 w-24 mb-2" />
-                <Skeleton className="h-4 w-40" />
-              </Card>
+        {pagLoading ? (
+          <div className="p-6">
+            {[...Array(6)].map((_, i) => (
+              <Skeleton key={i} className="h-8 w-full mb-2" />
             ))}
           </div>
         ) : (
-          <Card className="p-4">
-            <Skeleton className="h-8 w-full mb-2" />
-            <Skeleton className="h-8 w-full mb-2" />
-            <Skeleton className="h-8 w-full" />
-          </Card>
-        )
-      ) : flatContratos.length === 0 ? (
-        <Card className="p-8 sm:p-12 text-center">
-          <Building2 size={36} className="mx-auto text-emerald-200 mb-4" strokeWidth={1.5} />
-          <p className="text-sm font-medium text-slate-400">
-            {search ? 'Nenhum resultado encontrado' : 'Nenhuma empresa disponível'}
-          </p>
-        </Card>
-      ) : viewMode === 'cards' ? (
-        /* ─── CARDS VIEW ──────MESMA COISA QUE ANTES───────────── */
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 lg:gap-5">
-          {empresasList.map((empresa) => {
-            const percPago = empresa.totalInvestido > 0
-              ? (empresa.totalPago / empresa.totalInvestido) * 100
-              : 0;
-            return (
-              <Card
-                key={empresa.razao_social}
-                className={`p-4 sm:p-5 lg:p-6 border border-emerald-100/50 hover:shadow-card transition-all duration-200 cursor-pointer ${
-                  selectedEmpresa === empresa.razao_social ? 'ring-2 ring-emerald-600/30 border-emerald-600/40' : ''
-                }`}
-                onClick={() => setSelectedEmpresa(
-                  selectedEmpresa === empresa.razao_social ? null : empresa.razao_social
-                )}
-              >
-                <div className="flex items-start gap-3 sm:gap-4">
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-50 border border-emerald-200/60 flex items-center justify-center shrink-0">
-                    <Building2 size={18} className="text-emerald-600" strokeWidth={2} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-xs sm:text-sm font-bold text-slate-900 truncate">{empresa.razao_social}</h3>
-                  </div>
-                  <ChevronDown
-                    size={16}
-                    className={`text-slate-400 mt-1 transition-transform duration-200 shrink-0 ${
-                      selectedEmpresa === empresa.razao_social ? 'rotate-180' : ''
-                    }`}
-                    strokeWidth={2}
-                  />
-                </div>
-
-                <div className="mt-3 sm:mt-4 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-[11px] sm:text-xs min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <FileText size={12} className="text-slate-400" strokeWidth={2} />
-                    <span className="font-medium text-slate-600">{empresa.contratos.length} contratos</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <span className="font-semibold text-slate-900 truncate">{formatCurrency(empresa.totalInvestido)}</span>
-                  </div>
-                </div>
-
-                <div className="mt-3">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[10px] text-slate-400">Execução</span>
-                    <span className="text-[10px] font-semibold text-slate-600">{percPago.toFixed(1)}%</span>
-                  </div>
-                  <div className="h-1.5 bg-emerald-100/50 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-emerald-600 rounded-full transition-all duration-500"
-                      style={{ width: `${Math.min(100, percPago)}%` }}
-                    />
-                  </div>
-                </div>
-
-                {selectedEmpresa === empresa.razao_social && (
-                  <div className="mt-4 pt-4 border-t border-emerald-100/30 space-y-2">
-                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Contratos</p>
-                    {empresa.contratos.map((c) => {
-                      const percContrato = parseFloat(c.vl_total || 0) > 0
-                        ? ((parseFloat(c.vl_total_pago || 0) / parseFloat(c.vl_total || 0)) * 100).toFixed(1)
-                        : 0;
-                      return (
-                        <div
-                          key={c.id_bloco}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedContratoId(c.id_bloco);
-                          }}
-                          className="p-3 rounded-lg bg-emerald-50/40 hover:bg-emerald-100/40 transition-colors cursor-pointer group"
-                        >
-                          <div className="flex items-center justify-between mb-1.5">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <Badge variant="success" size="sm">{c.nu_bloco}</Badge>
-                              <span className="text-xs font-semibold text-slate-700">{c.cd_contrato}</span>
-                              {c.lote && <span className="text-[10px] font-medium text-slate-400">· Lote {c.lote}</span>}
-                            </div>
-                            <div className="flex items-center gap-2 shrink-0">
-                              <span className="text-[11px] font-semibold text-emerald-600 opacity-0 group-hover:opacity-100 transition-opacity">Ver detalhes</span>
-                              <ArrowRight size={14} className="text-slate-300 group-hover:text-emerald-600 transition-colors" strokeWidth={2} />
-                            </div>
+                    <div className="overflow-x-auto">
+            {pagedGrupos.length === 0 ? (
+              <div className="px-6 py-20 text-center">
+                <Ruler size={40} className="mx-auto text-emerald-200 mb-4" strokeWidth={1.5} />
+                <p className="text-sm font-medium text-slate-400">Nenhuma medição encontrada</p>
+                <p className="text-xs text-slate-300 mt-1">
+                  {empresasSel.length > 0 ? 'Ajuste os filtros para ver os resultados' : 'Nenhum pagamento cadastrado'}
+                </p>
+              </div>
+            ) : (
+              <table className="w-full text-left">
+                <tbody className="divide-y divide-emerald-100/20">
+                  {pagedGrupos.map((g) => (
+                    <Fragment key={g.nr}>
+                      {/* Linha informativa da medição */}
+                      <tr className="bg-emerald-50/60 border-t border-emerald-100/30">
+                        <td colSpan="7" className="px-4 py-2.5">
+                          <div className="flex items-center gap-4 flex-wrap">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 border border-emerald-100/50 text-[11px] font-semibold text-emerald-700">
+                              {g.nr}ª Medição
+                            </span>
+                            <span className="text-[11px] text-slate-500">
+                              Período: {formatarPeriodo(g)}
+                            </span>
+                            <span className="text-[11px] font-bold text-slate-800">
+                              Valor Total: {formatCurrency(g.totalPago)}
+                            </span>
                           </div>
-                          {c.objeto && (
-                            <p className="text-[10px] text-slate-500 leading-relaxed line-clamp-2 mb-1.5">{c.objeto}</p>
-                          )}
-                          <div className="flex items-center gap-3 text-[10px] text-slate-500">
-                            <span className="font-medium text-slate-700">{formatCurrency(c.vl_total)}</span>
-                            <span>Medido: {formatCurrency(c.vl_total_medido)}</span>
-                            <span>Execução: {percContrato}%</span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </Card>
-            );
-          })}
-        </div>
-      ) : (
-        /* ─── TABLE VIEW ────────────────────────────────────── */
-        <Card padding="p-0" className="overflow-hidden">
-
-          {/* ─── Desktop: tabela ──────────────────────── */}
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="border-b border-emerald-100/30 bg-emerald-50/30">
-                  <th onClick={() => handleSort('razao_social')} className="px-4 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none whitespace-nowrap">Empresa{sortArrow('razao_social')}</th>
-                  <th onClick={() => handleSort('nu_bloco')} className="px-4 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none whitespace-nowrap">Bloco{sortArrow('nu_bloco')}</th>
-                  <th onClick={() => handleSort('cd_contrato')} className="px-4 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none whitespace-nowrap">Contrato{sortArrow('cd_contrato')}</th>
-                  <th onClick={() => handleSort('lote')} className="px-4 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none whitespace-nowrap">Lote{sortArrow('lote')}</th>
-                  <th onClick={() => handleSort('objeto')} className="px-4 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none">Objeto{sortArrow('objeto')}</th>
-                  <th onClick={() => handleSort('segmento')} className="px-4 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none whitespace-nowrap">Segmento{sortArrow('segmento')}</th>
-                  <th onClick={() => handleSort('situacao_atual')} className="px-4 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none whitespace-nowrap">Status{sortArrow('situacao_atual')}</th>
-                  <th onClick={() => handleSort('vl_total')} className="px-4 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none whitespace-nowrap text-right">Valor do Contrato{sortArrow('vl_total')}</th>
-                  <th onClick={() => handleSort('vl_total_medido')} className="px-4 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none whitespace-nowrap text-right">Medido{sortArrow('vl_total_medido')}</th>
-                  <th onClick={() => handleSort('perc_pago')} className="px-4 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none whitespace-nowrap text-right">% Exec.{sortArrow('perc_pago')}</th>
-                  <th className="px-4 py-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-emerald-100/20">
-                {pagedFlat.map((c) => {
-                  const perc = parseFloat(c.vl_total || 0) > 0
-                    ? ((parseFloat(c.vl_total_pago || 0) / parseFloat(c.vl_total || 0)) * 100).toFixed(1)
-                    : '0.0';
-                  return (
-                    <tr
-                      key={c.id_bloco}
-                      onClick={() => { setSelectedContratoId(c.id_bloco); setSelectedEmpresa(null); }}
-                      className="text-[12px] text-slate-600 hover:bg-emerald-50/60 transition-colors cursor-pointer"
-                    >
-                      <td className="px-4 py-3 font-semibold text-slate-800 whitespace-nowrap">{c.razao_social}</td>
-                      <td className="px-4 py-3 whitespace-nowrap">{c.nu_bloco}</td>
-                      <td className="px-4 py-3 font-medium text-slate-800 whitespace-nowrap">{c.cd_contrato}</td>
-                      <td className="px-4 py-3 whitespace-nowrap">{c.lote || '-'}</td>
-                      <td className="px-4 py-3 max-w-[200px] truncate">{c.objeto}</td>
-                      <td className="px-4 py-3 whitespace-nowrap">{c.segmento}</td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <Badge variant={c.situacao_atual === 'Em Andamento' ? 'success' : c.situacao_atual === 'Rescindido' ? 'danger' : 'warning'} size="sm">
-                          {c.situacao_atual || '-'}
-                        </Badge>
-                      </td>
-                      <td className="px-4 py-3 text-right whitespace-nowrap font-medium text-slate-800">{formatCurrency(c.vl_total)}</td>
-                      <td className="px-4 py-3 text-right whitespace-nowrap">{formatCurrency(c.vl_total_medido)}</td>
-                      <td className="px-4 py-3 text-right whitespace-nowrap">{perc}%</td>
-                      <td className="px-4 py-3 text-right">
-                        <ArrowRight size={14} className="text-slate-300 group-hover:text-emerald-600 transition-colors inline" strokeWidth={2} />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                        </td>
+                      </tr>
+                      {/* Cabeçalho de colunas (dentro da medição) */}
+                      <tr className="bg-emerald-50/20 border-b border-emerald-100/20">
+                        <th className="px-4 py-1.5 text-[9px] font-semibold text-slate-400 uppercase tracking-wider"></th>
+                        <th className="px-4 py-1.5 text-[9px] font-semibold text-slate-400 uppercase tracking-wider">Empresa</th>
+                        <th className="px-4 py-1.5 text-[9px] font-semibold text-slate-400 uppercase tracking-wider"></th>
+                        <th className="px-4 py-1.5 text-[9px] font-semibold text-slate-400 uppercase tracking-wider">NF</th>
+                        <th className="px-4 py-1.5 text-[9px] font-semibold text-slate-400 uppercase tracking-wider text-right">Valor</th>
+                        <th className="px-4 py-1.5 text-[9px] font-semibold text-slate-400 uppercase tracking-wider text-right">% Med.</th>
+                        <th className="px-4 py-1.5 text-[9px] font-semibold text-slate-400 uppercase tracking-wider">Liberação</th>
+                      </tr>
+                      {/* Linhas por empresa */}
+                      {g.linhas.map((p) => {
+                        const perc = g.totalPago > 0 ? ((p.vl_pago || 0) / g.totalPago) * 100 : 0;
+                        return (
+                          <tr key={p.id} className="text-[12px] text-slate-600 hover:bg-emerald-50/40 transition-colors">
+                            <td className="px-4 py-2"></td>
+                            <td className="px-4 py-2">
+                              <Badge variant={EMPRESA_BADGE[p.empresa] || 'neutral'} size="sm">
+                                {p.empresa}
+                              </Badge>
+                            </td>
+                            <td className="px-4 py-2"></td>
+                            <td className="px-4 py-2 font-mono text-xs text-slate-500">{p.nr_nf || '—'}</td>
+                            <td className="px-4 py-2 text-right font-medium text-slate-800">{formatCurrency(p.vl_pago)}</td>
+                            <td className="px-4 py-2 text-right">
+                              <span className="text-xs font-semibold text-slate-500">{perc.toFixed(1)}%</span>
+                            </td>
+                            <td className="px-4 py-2 whitespace-owrap text-xs text-slate-500">{p.dt_liberacao || '—'}</td>
+                          </tr>
+                        );
+                      })}
+                    </Fragment>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
-            <Pagination page={safeTablePage} totalPages={totalTablePages} onChange={setTablePage} itemsPerPage={itemsPerPage} onItemsPerPageChange={setItemsPerPage} />
-        </Card>
-      )}
+        )}
+        <Pagination page={safeTablePage} totalPages={totalTablePages} onChange={setTablePage} itemsPerPage={itemsPerPage} onItemsPerPageChange={setItemsPerPage} />
+      </Card>
 
-      <ContractDetail
-        contratoId={selectedContratoId}
-        onClose={() => setSelectedContratoId(null)}
-      />
       <ExportDialog
         open={exportOpen}
         onClose={() => setExportOpen(false)}
         data={exportData}
         columns={exportColumns}
         formatters={{
-          vl_total: formatCurrency,
-          vl_total_medido: formatCurrency,
+          vl_pago: formatCurrency,
         }}
-        filename="empresas-contratos"
-        title="Exportar Contratos por Empresa"
+        filename="controle-pagamentos"
+        title="Exportar Controle de Pagamentos"
       />
     </div>
   );
