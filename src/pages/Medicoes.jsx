@@ -851,8 +851,7 @@ const detailMap = React.useMemo(() => {
                   return (
                     <tr
                       key={`${m.nuMedicao}-${idx}`}
-                      onClick={() => { if (url) handleOpenMedicao(m); }}
-                      className={`group transition-all duration-200 hover:bg-emerald-50/40 ${url ? 'cursor-pointer' : ''}`}
+                      className="group transition-all duration-200 hover:bg-emerald-50/40"
                     >
                       <td className="px-4 py-3">
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 border border-emerald-100/50 text-[11px] font-semibold text-emerald-700">
