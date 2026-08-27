@@ -19,6 +19,7 @@ import { formatCurrency, formatDate } from '../utils/formatters';
 import * as apiService from '../services/api.service';
 import Card from '../components/ui/Card';
 import { useDashboardContext } from '../layouts/DashboardLayout';
+import { API_URL } from '../config/constants';
 import Badge from '../components/ui/Badge';
 import Skeleton from '../components/ui/Skeleton';
 import Pagination from '../components/ui/Pagination';
@@ -82,7 +83,7 @@ const Aditivos = () => {
     apiService.getDocumentoPubToken(relPath)
       .then((data) => {
         if (!data?.token) throw new Error('Sem token');
-        const pubUrl = window.location.origin + '/api/documentos-contrato/pub/' + data.token;
+        const pubUrl = API_URL + '/documentos-contrato/pub/' + data.token;
         setPreviewDoc({ doc: d, url: pubUrl, loading: false, error: null });
       })
       .catch((e) => setPreviewDoc({ doc: d, url: '', loading: false, error: e.message }));

@@ -22,6 +22,7 @@ import ExpandableText from '../components/ui/ExpandableText';
 import ExportDialog from '../components/ui/ExportDialog';
 import ContractDetail from '../components/contract/ContractDetail';
 import { useDashboardContext } from '../layouts/DashboardLayout';
+import { API_URL } from '../config/constants';
 
 const TIPO_CORES = {
   'Início': { bg: 'from-emerald-500 to-emerald-600', shadow: 'shadow-emerald-500/20', icon: TrendingUp },
@@ -78,7 +79,7 @@ const OrdensServico = () => {
     apiService.getDocumentoPubToken(relPath)
       .then((data) => {
         if (!data?.token) throw new Error('Sem token');
-        const pubUrl = window.location.origin + '/api/documentos-contrato/pub/' + data.token;
+        const pubUrl = API_URL + '/documentos-contrato/pub/' + data.token;
         setPreviewDoc({ doc: d, url: pubUrl, loading: false, error: null });
       })
       .catch((e) => setPreviewDoc({ doc: d, url: '', loading: false, error: e.message }));

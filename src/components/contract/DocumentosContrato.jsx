@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FileText, Download, X, Loader2, File as FileIcon } from 'lucide-react';
 import * as apiService from '../../services/api.service';
+import { API_URL } from '../../config/constants';
 import Card from '../ui/Card';
 import Skeleton from '../ui/Skeleton';
 
@@ -45,7 +46,7 @@ const DocumentosContrato = ({ grupo, titulo }) => {
     apiService.getDocumentoPubToken(relPath)
       .then((data) => {
         if (!data?.token) throw new Error('Sem token');
-        const pubUrl = window.location.origin + '/api/documentos-contrato/pub/' + data.token;
+        const pubUrl = API_URL + '/documentos-contrato/pub/' + data.token;
         setPreview({ doc: d, url: pubUrl, loading: false, error: null });
       })
       .catch((e) => setPreview({ doc: d, url: '', loading: false, error: e.message }));

@@ -5,6 +5,7 @@ import Skeleton from '../components/ui/Skeleton';
 import Pagination from '../components/ui/Pagination';
 import ContractDetail from '../components/contract/ContractDetail';
 import { getGestores, getDocumentosContrato, getDocumentoPubToken, downloadDocumentoContrato } from '../services/api.service';
+import { API_URL } from '../config/constants';
 import { useDashboardContext } from '../layouts/DashboardLayout';
 
 const PAGE_SIZE = 10;
@@ -89,7 +90,7 @@ const Gestores = () => {
     getDocumentoPubToken(relPath)
       .then((data) => {
         if (!data?.token) throw new Error('Sem token');
-        const pubUrl = window.location.origin + '/api/documentos-contrato/pub/' + data.token;
+        const pubUrl = API_URL + '/documentos-contrato/pub/' + data.token;
         setPreviewDoc({ doc: d, url: pubUrl, loading: false, error: null });
       })
       .catch((e) => setPreviewDoc({ doc: d, url: '', loading: false, error: e.message }));

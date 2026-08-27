@@ -20,6 +20,7 @@ import Pagination from '../components/ui/Pagination';
 import ExportDialog from '../components/ui/ExportDialog';
 import { useDashboardContext } from '../layouts/DashboardLayout';
 import { CONTRATO_ALVO } from '../config/constants';
+import { API_URL } from '../config/constants';
 
 const Medicoes = () => {
   const { contratos, contratosRaw, loading, selectedBloco, selectedBlocos, selectedSegmentos, blocosDisponiveis, customDateStart, customDateEnd, selectedPeriod } = useDashboardContext();
@@ -62,7 +63,7 @@ const Medicoes = () => {
     apiService.getMedicoesPubToken(relPath)
       .then((data) => {
         if (!data?.token) throw new Error('Sem token');
-        const pubUrl = window.location.origin + '/api/medicoes/pub/' + data.token;
+        const pubUrl = API_URL + '/medicoes/pub/' + data.token;
         const viewerUrl = 'https://view.officeapps.live.com/op/view.aspx?src=' + encodeURIComponent(pubUrl);
         setPreview({ medicao: m, url: viewerUrl, loading: false, error: null });
       })

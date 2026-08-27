@@ -81,7 +81,7 @@ function handleOpenFile(file) {
       fetch(API_URL + '/fichas/pub/token?path=' + encPath, { headers: { 'Authorization': 'Bearer ' + getToken() } })
         .then(function(r) { if (!r.ok) return r.text().then(function(t) { throw new Error(t || 'Erro ' + r.status); }); return r.json(); })
         .then(function(data) {
-          var pubUrl = window.location.origin + '/api/fichas/pub/' + data.token;
+          var pubUrl = API_URL + '/fichas/pub/' + data.token;
           var viewerUrl = 'https://view.officeapps.live.com/op/view.aspx?src=' + encodeURIComponent(pubUrl);
           setPreview({ file, data: viewerUrl, tipo: 'office', loading: false, error: null });
         })
