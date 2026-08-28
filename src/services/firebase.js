@@ -37,8 +37,11 @@ export async function handleRedirectResult() {
     const userData = await saveOrUpdateUser(user);
     return { user: userData, token };
   } catch (err) {
+    // Erro "missing initial state" = sessionStorage inacessível (mobile, in-app browser)
+    // Limpa estado pendente do redirect para não travar
     console.error('[Firebase] Erro no redirect:', err);
-    throw err;
+    try { await signOut(auth); } catch (e) { /* ignora */ }
+    return null;
   }
 }
 
