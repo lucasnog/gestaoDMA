@@ -13,6 +13,7 @@ import {
   Clock,
   BadgeCheck,
   UserCheck,
+  DollarSign,
 } from "lucide-react";
 import { useAuthStore } from "../../stores/auth.store";
 
@@ -51,6 +52,12 @@ const Sidebar = ({ contractsAlertCount = 0, isOpen, onClose }) => {
       label: "Ordens de Serviço",
       icon: Clock,
       description: "Histórico de OS",
+    },
+    {
+      path: "/empenhos",
+      label: "Empenhos",
+      icon: DollarSign,
+      description: "Empenhos do contrato",
     },
     {
       path: "/empresas",

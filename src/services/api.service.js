@@ -250,6 +250,23 @@ export const getControlePagamentoTotais = async () => {
     return response.data;
 };
 
+// ════════════════ EMPENHOS (ficha GERENCIADORA.xlsx) ════════════════
+
+export const getEmpenhos = async (params = {}) => {
+    const response = await api.get('/gestaodma/empenhos', { params });
+    return response.data;
+};
+
+export const getEmpenhosResumo = async () => {
+    const response = await api.get('/gestaodma/empenhos/resumo');
+    return response.data;
+};
+
+export const getEmpenhosTotais = async () => {
+    const response = await api.get('/gestaodma/empenhos/totais');
+    return response.data;
+};
+
 // ÔöÇÔöÇÔöÇ GEMOCDOCS ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 
 export const getGemocdocsTables = async () => {

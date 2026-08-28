@@ -9,6 +9,7 @@ import Relatorios from './pages/Relatorios';
 import Aditivos from './pages/Aditivos';
 import Apostilas from './pages/Apostilas';
 import OrdensServico from './pages/OrdensServico';
+import Empenhos from './pages/Empenhos';
 import Documentos from './pages/Documentos';
 import Gestores from './pages/Gestores';
 import About from './pages/About';
@@ -43,6 +44,7 @@ const router = createBrowserRouter([
       { path: "aditivos", element: <Aditivos /> },
       { path: "apostilas", element: <Apostilas /> },
       { path: "os", element: <OrdensServico /> },
+      { path: "empenhos", element: <Empenhos /> },
       { path: "gestores", element: <Gestores /> },
       { path: "admin", element: <Admin /> },
       { path: "sobre", element: <About /> },
