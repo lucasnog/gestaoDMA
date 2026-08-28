@@ -11,17 +11,33 @@ import {
   Activity,
   UserCheck,
 } from 'lucide-react';
-import { formatCurrencyShort, formatPercent } from '../utils/formatters';
+import { LineChart, Line, ReferenceLine, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { formatCurrency, formatCurrencyShort, formatPercent } from '../utils/formatters';
 import Card from '../components/ui/Card';
 import ContractDetail from '../components/contract/ContractDetail';
 import { useDashboard } from '../hooks/useDashboard';
-import { getSectionStats } from '../services/api.service';
+import { getSectionStats, getContratoDetails } from '../services/api.service';
+import { CONTRATO_ALVO } from '../config/constants';
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const { contratos, loading, contratoAlvo } = useDashboard();
   const [sectionStats, setSectionStats] = useState(null);
   const [selectedContratoId, setSelectedContratoId] = useState(null);
+  const [medicoes, setMedicoes] = useState([]);
+
+  // ─── Busca as medições do contrato 61/2023 para o gráfico acumulado ──
+  useEffect(() => {
+    let ativo = true;
+    getContratoDetails(CONTRATO_ALVO.id)
+      .then((details) => {
+        if (!ativo) return;
+        const rows = (details && Array.isArray(details.medicoes)) ? details.medicoes : [];
+        setMedicoes(rows);
+      })
+      .catch(() => { if (ativo) setMedicoes([]); });
+    return () => { ativo = false; };
+  }, []);
 
   // ─── KPIs a partir do único contrato 61/2023 ───────────────────────
   const dashboardKpis = useMemo(() => {
@@ -33,6 +49,25 @@ const Dashboard = () => {
     const percGlobal = investido > 0 ? (medido / investido) * 100 : 0;
     return { total, investido, pago, medido, percGlobal, contrato: c };
   }, [contratos]);
+
+  // ─── Gráfico acumulado das medições (0 → valor do contrato) ──────────
+  const chartAcumulado = useMemo(() => {
+    if (medicoes.length === 0) return [];
+    const ordenadas = [...medicoes]
+      .filter(m => m.vl_total || m.vl_pi || m.vl_ra)
+      .map(m => {
+        const vl = parseFloat(m.vl_total ?? (parseFloat(m.vl_pi || 0) + parseFloat(m.vl_ra || 0)) || 0);
+        const dt = m.dt_medicao || m.dt_periodo_fim || m.dt_periodo_inicio || '';
+        return { dt, label: `${m.nr_medicao || '?'}ª Medição`, valor: vl };
+      })
+      .filter(m => m.dt)
+      .sort((a, b) => a.dt.localeCompare(b.dt));
+    let acc = 0;
+    return ordenadas.map((m, i) => {
+      acc += m.valor;
+      return { ...m, acumulado: acc, contrato: dashboardKpis.investido, idx: i };
+    });
+  }, [medicoes, dashboardKpis.investido]);
 
   // ─── Seções rápidas (todas as áreas do contrato 61/2023) ───────────────
   const sections = useMemo(() => [
@@ -124,6 +159,56 @@ const Dashboard = () => {
           </Card>
         ))}
       </div>
+
+      {/* ─── Gráfico de Execução Acumulada ─────────────────────────────── */}
+      <Card className="p-4 sm:p-6 border border-emerald-100/50 shadow-sm">
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            <TrendingUp size={16} className="text-emerald-600" strokeWidth={2} />
+            <h3 className="text-xs sm:text-sm font-bold text-slate-900">Execução Acumulada</h3>
+            <span className="text-[10px] sm:text-[11px] text-slate-400">
+              medido vs. valor do contrato ({formatCurrencyShort(dashboardKpis.investido)})
+            </span>
+          </div>
+          <div className="text-[10px] text-slate-400">
+            <span className="font-semibold text-emerald-600">{(dashboardKpis.percGlobal || 0).toFixed(1)}%</span> executado
+          </div>
+        </div>
+        <div className="h-48 sm:h-64 chart-no-focus">
+          {chartAcumulado.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartAcumulado} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <ReferenceLine y={dashboardKpis.investido} stroke="#94a3b8" strokeDasharray="6 4" strokeWidth={1}
+                  label={{ value: 'Valor do Contrato', position: 'insideTopRight', fill: '#94a3b8', fontSize: 10 }} />
+                <XAxis
+                  dataKey="label"
+                  tick={{ fontSize: 10, fill: '#94a3b8' }}
+                  tickLine={false}
+                  axisLine={{ stroke: '#e2e8f0' }}
+                  minTickGap={24}
+                />
+                <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} tickLine={false} axisLine={false}
+                  domain={[0, dashboardKpis.investido > 0 ? dashboardKpis.investido : 'dataMax']}
+                  tickFormatter={(v) => `R$ ${(v / 1000000).toFixed(0)}M`} />
+                <Tooltip
+                  contentStyle={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
+                  formatter={(value, name) => {
+                    if (name === 'acumulado') return [formatCurrency(value), 'Medido acumulado'];
+                    if (name === 'contrato') return [formatCurrency(value), 'Valor do Contrato'];
+                    return [formatCurrency(value), 'Valor'];
+                  }}
+                  labelFormatter={(label) => label}
+                />
+                <Line type="monotone" dataKey="acumulado" stroke="#059669" strokeWidth={2.5}
+                  dot={{ r: 3, fill: '#059669', strokeWidth: 0 }} activeDot={{ r: 5, fill: '#059669', stroke: '#fff', strokeWidth: 2 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-full text-slate-300 text-sm">Carregando dados de medições...</div>
+          )}
+        </div>
+      </Card>
 
       {/* ─── Section Quick Nav ──────────────────────────────────────────── */}
       <div>

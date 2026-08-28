@@ -736,6 +736,8 @@ const detailMap = React.useMemo(() => {
               </button>
             ))}
           </div>
+        </div>
+        <div className="flex items-center justify-end mb-4">
           <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5">
             {[
               { key: 'bar', label: 'Barras' },
