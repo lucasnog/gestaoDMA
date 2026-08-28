@@ -109,7 +109,7 @@ export const SEGMENT_ORDER = [
   'SUPERVISÃO CONSERVA 2026', 'SUPERVISÃO CONSERVA 2027', 'SUPERVISÃO CONSERVA 2028',
   'SUPERVISÃO CONSERVA 2029', 'SUPERVISÃO CONSERVA 2030', 'SUPERVISÃO CONSERVA 2031',
   'SUPERVISÃO CONSERVA 2032', 'SUPERVISÃO CONSERVA 2033',
-  'GMM', 'GMM - ETAPA 1', 'GMM - ETAPA 2', 'GMM - ETAPA 3', 'GMM - ETAPA 4', 'GMM - ETAPA 5', 'GMM - ETAPA 6', 'GMM (COMPLETO)',
+  'GMM - CONSOLIDADO', 'GMM', 'GMM - ETAPA 1', 'GMM - ETAPA 2', 'GMM - ETAPA 3', 'GMM - ETAPA 4', 'GMM - ETAPA 5', 'GMM - ETAPA 6', 'GMM (COMPLETO)',
   'GME',
   'GMK - OAC', 'GMK - PROJ', 'GMPK',
   'GMP', 'GMP - ENTORNO', 'GMP - ETAPA I', 'GMP - ETAPA II', 'GMP (COMPLETO)',
@@ -139,4 +139,24 @@ export function sortSegmentos(segmentos) {
     if (pa !== pb) return pa - pb;
     return sa.localeCompare(sb);
   });
+}
+
+export const SEGMENTO_GMM_CONSOLIDADO = 'GMM - CONSOLIDADO';
+
+export function isSegmentoGMM(seg) {
+  return typeof seg === 'string' && /^GMM(\s|$|-|\(|COMPLETO)/i.test(seg.trim());
+}
+
+export function segmentoSelecionadoCobre(selectedSegmentos, seg) {
+  if (!selectedSegmentos || selectedSegmentos.length === 0) return true;
+  if (selectedSegmentos.includes(SEGMENTO_GMM_CONSOLIDADO) && isSegmentoGMM(seg)) return true;
+  return selectedSegmentos.includes(seg);
+}
+
+export function expandirSegmentosSelecionados(selectedSegmentos) {
+  if (!selectedSegmentos || selectedSegmentos.length === 0) return [];
+  if (!selectedSegmentos.includes(SEGMENTO_GMM_CONSOLIDADO)) return selectedSegmentos;
+  const gmmReais = SEGMENT_ORDER.filter((s) => s !== SEGMENTO_GMM_CONSOLIDADO && isSegmentoGMM(s));
+  const resto = selectedSegmentos.filter((s) => s !== SEGMENTO_GMM_CONSOLIDADO);
+  return [...new Set([...gmmReais, ...resto])];
 }

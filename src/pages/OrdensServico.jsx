@@ -22,7 +22,7 @@ import ExpandableText from '../components/ui/ExpandableText';
 import ExportDialog from '../components/ui/ExportDialog';
 import ContractDetail from '../components/contract/ContractDetail';
 import { useDashboardContext } from '../layouts/DashboardLayout';
-import { API_URL } from '../config/constants';
+import { API_URL, expandirSegmentosSelecionados } from '../config/constants';
 
 const TIPO_CORES = {
   'Início': { bg: 'from-emerald-500 to-emerald-600', shadow: 'shadow-emerald-500/20', icon: TrendingUp },
@@ -51,7 +51,7 @@ const OrdensServico = () => {
   const [docsContrato, setDocsContrato] = useState([]);
   const [previewDoc, setPreviewDoc] = useState(null);
 
-  // ─── Carrega PDFs do contrato (OS) ───
+  // ─── Carrega PDFs de OS (todos os contratos) ───
   useEffect(() => {
     let active = true;
     apiService.getDocumentosContrato()
@@ -102,7 +102,7 @@ const OrdensServico = () => {
       .catch((e) => alert('Erro: ' + e.message));
   };
 
-  // Mapa de documentos por SEI
+  // Mapa de documentos por SEI (numero do arquivo)
   const docsMap = useMemo(() => {
     const map = new Map();
     for (const d of docsContrato) {
@@ -112,8 +112,24 @@ const OrdensServico = () => {
   }, [docsContrato]);
 
   const findDoc = (os) => {
-    const seiMatch = (os.OS_SEI || '').match(/\(([^)]+)\)/);
-    if (seiMatch && docsMap.has(seiMatch[1])) return docsMap.get(seiMatch[1]);
+    // Procura o SEI no nome/objeto da OS, ou pelo número do contrato + data
+    const osNome = `${os.OBJETO_EXIBICAO || ''} ${os.CONTRATO || ''}`;
+    for (const d of docsContrato) {
+      if (!d.arquivo) continue;
+      const nomeArq = String(d.arquivo).toLowerCase();
+      const contratoPasta = String(os.CONTRATO || '').replace('/', '-').toLowerCase();
+      if (nomeArq.includes(contratoPasta)) {
+        // Tenta bater pela data da OS no nome do arquivo (ex: 2024-08-15)
+        const dataOs = (os.DATA_OS || '').replace(/-/g, '');
+        if (dataOs && nomeArq.includes(dataOs)) return d;
+        // Fallback: se for o único documento desse contrato, usa
+        const doContrato = docsContrato.filter(x => x.arquivo && String(x.arquivo).toLowerCase().includes(contratoPasta));
+        if (doContrato.length === 1) return d;
+      }
+    }
+    // Fallback: match por SEI no objeto
+    const seiMatch = osNome.match(/\b\d{11,17}\b/);
+    if (seiMatch && docsMap.has(seiMatch[0])) return docsMap.get(seiMatch[0]);
     return null;
   };
 
@@ -140,10 +156,20 @@ const OrdensServico = () => {
   }
 
   const exportColumns = useMemo(() => [
-    { key: 'OS_NUMERO', label: 'OS' },
-    { key: 'SEI', label: 'SEI' },
+    { key: 'BLOCO_NORM', label: 'Bloco' },
+    { key: 'CONTRATO', label: 'Contrato' },
+    { key: 'LOTE', label: 'Lote' },
+    { key: 'EMPRESA', label: 'Empresa' },
+    { key: 'SEGMENTO', label: 'Segmento' },
+    { key: 'GERENCIA', label: 'Gerência' },
     { key: 'TIPO_DE_OS', label: 'Tipo' },
+    { key: 'NUMERO_OS', label: 'Nº OS' },
     { key: 'DATA_OS', label: 'Data' },
+    { key: 'ASSINATURA_OS', label: 'Assinatura' },
+    { key: 'PROXIMA_OS', label: 'Próxima OS' },
+    { key: 'OS_SEI', label: 'OS/SEI Original' },
+    { key: 'PROCESSO_CONTRATO', label: 'Processo' },
+    { key: 'DOCUMENTO_SEI_CONTRATO', label: 'Doc. SEI' },
     { key: 'OBJETO_EXIBICAO', label: 'Objeto' },
   ], []);
 
@@ -213,7 +239,7 @@ const OrdensServico = () => {
       setLoading(true);
       try {
         const blocoParam = blocoKey || undefined;
-        const segmentoParam = segmentoKey || undefined;
+        const segmentoParam = expandirSegmentosSelecionados(selectedSegmentos).join(',') || undefined;
         const searchParam = search || undefined;
 
         const osResult = await apiService.getOrdensServico({
@@ -302,16 +328,13 @@ const OrdensServico = () => {
     });
   }, [filteredOs, sortConfig]);
 
-  const exportData = useMemo(() => {
-    return filteredOs.map((os) => {
-      const seiMatch = (os.OS_SEI || '').match(/\(([^)]+)\)/);
-      return {
-        ...os,
-        OS_NUMERO: os.OS_SEI ? os.OS_SEI.split(' ')[0] : '',
-        SEI: seiMatch ? seiMatch[1] : '',
-      };
-    });
-  }, [filteredOs]);
+  const exportData = useMemo(() =>
+    filteredOs.map(os => {
+      const m = (os.OS_SEI || '').match(/(?:OS\s*n[ºo]?\s*)?(\d+\/\d{4})/i);
+      return { ...os, NUMERO_OS: m ? m[1] : '' };
+    }),
+    [filteredOs]
+  );
 
   // Paginação
   const totalPages = Math.max(1, Math.ceil(sortedOs.length / itemsPerPage));
@@ -559,26 +582,32 @@ const OrdensServico = () => {
                 <th className="px-3 py-3 w-8">
                   <input type="checkbox" checked={selectedIds.length > 0 && selectedIds.length === sortedOs.length} onChange={toggleSelectAll} className="w-3.5 h-3.5 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer" />
                 </th>
-                <th onClick={() => handleSort('OS_SEI')} className="px-3 sm:px-6 py-3 text-left text-[9px] sm:text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none">
-                  N&deg; da OS{sortConfig.key === 'OS_SEI' ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
-                </th>
                 <th className="px-3 sm:px-6 py-3 text-left text-[9px] sm:text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-                  SEI
+                  Contrato
+                </th>
+                <th onClick={() => handleSort('LOTE')} className="px-3 sm:px-6 py-3 text-left text-[9px] sm:text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none">
+                  Lote{sortConfig.key === 'LOTE' ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
                 </th>
                 <th onClick={() => handleSort('TIPO_DE_OS')} className="px-3 sm:px-6 py-3 text-left text-[9px] sm:text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none">
                   Tipo{sortConfig.key === "TIPO_DE_OS" ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
+                </th>
+                <th className="px-3 sm:px-6 py-3 text-left text-[9px] sm:text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                  Nº OS
+                </th>
+                <th className="px-3 sm:px-6 py-3 text-left text-[9px] sm:text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                  SEI
                 </th>
                 <th onClick={() => handleSort('DATA_OS')} className="px-3 sm:px-6 py-3 text-left text-[9px] sm:text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none">
                   Data{sortConfig.key === "DATA_OS" ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
                 </th>
                 <th className="px-3 sm:px-6 py-3 text-left text-[9px] sm:text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Objeto</th>
-                <th className="px-3 sm:px-6 py-3 text-center text-[9px] sm:text-[10px] font-semibold text-slate-400 uppercase tracking-wider w-24">PDF</th>
+                <th className="px-3 sm:px-6 py-3 text-center text-[9px] sm:text-[10px] font-semibold text-slate-400 uppercase tracking-wider w-28">PDF</th>
               </tr>
             </thead>
             <tbody>
               {pagedOs.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-3 sm:px-6 py-8 text-center text-slate-400 text-xs">
+                  <td colSpan={9} className="px-3 sm:px-6 py-8 text-center text-slate-400 text-xs">
                     Nenhuma Ordem de Serviço encontrada
                   </td>
                 </tr>
@@ -586,33 +615,53 @@ const OrdensServico = () => {
                 pagedOs.map((os, idx) => {
                   const tipoCor = TIPO_CORES[os.TIPO_DE_OS] || { bg: 'from-slate-500 to-slate-600', shadow: 'shadow-slate-500/20', icon: FileText };
                   const TipoIcon = tipoCor.icon;
+                  const numeroOsMatch = (os.OS_SEI || '').match(/(?:OS\s*n[ºo]?\s*)?(\d+\/\d{4})/i);
+                  const numeroOs = numeroOsMatch ? numeroOsMatch[1] : '';
                   const seiMatch = (os.OS_SEI || '').match(/\(([^)]+)\)/);
                   const sei = seiMatch ? seiMatch[1] : '';
-                  const osNumero = os.OS_SEI ? os.OS_SEI.split(' ')[0] : '';
                   return (
                     <tr
                       key={`${os.CONTRATO}-${os.DATA_OS}-${idx}`}
-                      className="group transition-all duration-200 hover:bg-emerald-50/40"
+                      onClick={() => setSelectedContratoId(os.CONTRATO)}
+                      className="group cursor-pointer transition-all duration-200 hover:bg-emerald-50/40"
                     >
                       <td className="px-3 py-3 w-8" onClick={function(e) { e.stopPropagation(); }}>
                         <input type="checkbox" checked={selectedIds.includes(getOsId(os))} onChange={function() { toggleSelect(getOsId(os)); }} className="w-3.5 h-3.5 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer" />
                       </td>
                       <td className="px-3 sm:px-6 py-3 sm:py-4">
-                        <span className="text-[11px] sm:text-sm font-semibold text-slate-900">{osNumero || '—'}</span>
-                      </td>
-                      <td className="px-3 sm:px-6 py-3 sm:py-4" onClick={function(e) { e.stopPropagation(); }}>
-                        {sei ? (
-                          <span className="inline-flex items-center gap-1 text-[10px] sm:text-xs text-slate-600 font-medium cursor-pointer hover:text-emerald-600 transition-colors" onClick={function(e) { e.stopPropagation(); navigator.clipboard.writeText(sei); }} title="Copiar número SEI">
-                            <FileText size={12} className="text-slate-400" />
-                            {sei}
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex items-center gap-1 px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-md bg-emerald-50 border border-emerald-100/50 text-[9px] sm:text-[11px] font-semibold text-emerald-700">
+                            {os.BLOCO_NORM || '—'}
                           </span>
-                        ) : <span className="text-xs text-slate-300">—</span>}
+                          <div className="min-w-0">
+                            <span className="text-[11px] sm:text-sm font-semibold text-slate-900 truncate block">{os.CONTRATO}</span>
+                            <span className="text-[9px] sm:text-[10px] text-slate-400 truncate block">{os.SEGMENTO || '—'}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-3 sm:px-6 py-3 sm:py-4">
+                        <span className="text-[11px] sm:text-sm font-semibold text-slate-900">{os.LOTE || '—'}</span>
                       </td>
                       <td className="px-3 sm:px-6 py-3 sm:py-4">
                         <span className={`inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md bg-gradient-to-br ${tipoCor.bg} text-white text-[9px] sm:text-[10px] font-semibold shadow-xs`}>
                           <TipoIcon size={9} strokeWidth={2.5} />
                           {os.TIPO_DE_OS || '—'}
                         </span>
+                      </td>
+                      <td className="px-3 sm:px-6 py-3 sm:py-4">
+                        {numeroOs ? (
+                          <span className="text-[11px] sm:text-sm font-semibold text-slate-900" title={os.OS_SEI || ''}>
+                            {numeroOs}
+                          </span>
+                        ) : <span className="text-xs text-slate-300">—</span>}
+                      </td>
+                      <td className="px-3 sm:px-6 py-3 sm:py-4" onClick={function(e) { e.stopPropagation(); }}>
+                        {sei ? (
+                          <span className="inline-flex items-center gap-1.5 text-xs text-slate-600 font-medium cursor-pointer hover:text-emerald-600 transition-colors" onClick={function(e) { e.stopPropagation(); navigator.clipboard.writeText(sei); }} title="Copiar número SEI">
+                            <FileText size={12} className="text-slate-400" />
+                            {sei}
+                          </span>
+                        ) : <span className="text-xs text-slate-300">—</span>}
                       </td>
                       <td className="px-3 sm:px-6 py-3 sm:py-4">
                         <span className="text-[11px] sm:text-sm font-medium text-slate-700">
@@ -622,7 +671,7 @@ const OrdensServico = () => {
                       <td className="px-3 sm:px-6 py-3 sm:py-4 min-w-[160px] sm:min-w-0">
                         <ExpandableText text={os.OBJETO_EXIBICAO} maxLines={2} className="text-[10px] sm:text-[11px] text-slate-600 leading-snug" />
                       </td>
-                      <td className="px-3 sm:px-6 py-3 sm:py-4 text-center" onClick={function(e) { e.stopPropagation(); }}>
+                      <td className="px-3 sm:px-6 py-3 text-center" onClick={function(e) { e.stopPropagation(); }}>
                         {findDoc(os) ? (
                           <div className="inline-flex items-center gap-1">
                             <button
@@ -642,7 +691,7 @@ const OrdensServico = () => {
                               Baixar
                             </button>
                           </div>
-                        ) : <span className="text-xs text-slate-300">—</span>}
+                        ) : <span className="text-[11px] text-slate-300">—</span>}
                       </td>
                     </tr>
                   );
@@ -662,6 +711,8 @@ const OrdensServico = () => {
         columns={exportColumns}
         formatters={{
           DATA_OS: formatDate,
+          ASSINATURA_OS: formatDate,
+          PROXIMA_OS: formatDate,
         }}
         filename="ordens-servico"
         title="Exportar Ordens de Serviço"

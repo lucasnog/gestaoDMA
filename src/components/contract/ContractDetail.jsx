@@ -203,12 +203,11 @@ const ContractDetail = ({ contratoId, onClose }) => {
 
             const ativosOuFallback = ativos.length > 0 ? ativos : fallback;
 
-            // Todos os gestores e fiscais técnicos atuais (não apenas o primeiro),
-            // pois um contrato pode ter vários ao mesmo tempo (ex: várias portarias).
-            const gestoresAtuais = ativosOuFallback.filter((g) =>
+            const gestor = ativosOuFallback.find((g) =>
               g.TIPO?.toLowerCase().includes("gestor"),
             );
-            const fiscaisAtuais = ativosOuFallback.filter((g) =>
+            // Fiscal: quem é "Fiscal do contrato" OU "Gestor e Fiscal do Contrato"
+            const fiscal = ativosOuFallback.find((g) =>
               g.TIPO?.toLowerCase().includes("fiscal"),
             );
 
@@ -227,16 +226,8 @@ const ContractDetail = ({ contratoId, onClose }) => {
               aditivos,
               principal,
               ordensServico,
-              gestoresNome: [
-                ...new Set(
-                  gestoresAtuais.map((g) => g.NOME).filter(Boolean),
-                ),
-              ],
-              fiscaisNome: [
-                ...new Set(fiscaisAtuais.map((g) => g.NOME).filter(Boolean)),
-              ],
-              fiscalNome: fiscaisAtuais[0]?.NOME || null,
-              gestorNome: gestoresAtuais[0]?.NOME || null,
+              fiscalNome: fiscal?.NOME || null,
+              gestorNome: gestor?.NOME || null,
             });
           };
 
@@ -580,7 +571,7 @@ const ContractDetail = ({ contratoId, onClose }) => {
                       strokeWidth={2}
                     />
                     <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-                      Valor do Contrato
+                      Investimento Total
                     </span>
                   </div>
                   <p className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight break-words">
@@ -693,7 +684,7 @@ const ContractDetail = ({ contratoId, onClose }) => {
                         Municipios GMP
                       </span>
                       <span className="text-[10px] text-slate-400 ml-auto">
-                        {municipiosGmp.filter(m => m.STATUS === 'EM ANDAMENTO').length} andamento · {municipiosGmp.filter(m => m.STATUS === 'PARALISADO').length} paralisados
+                        {municipiosGmp.filter(m => m.STATUS === 'EM ANDAMENTO').length} EM ANDAMENTO · {municipiosGmp.filter(m => m.STATUS === 'PARALISADO').length} paralisados
                       </span>
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1.5">
@@ -1027,19 +1018,19 @@ const ContractDetail = ({ contratoId, onClose }) => {
                       </Badge>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
-                      {gemocdocs?.gestoresNome?.length > 0 && (
+                      {gemocdocs?.gestorNome && (
                         <div>
-                          <span className="text-slate-400">Gestor(es):</span>
+                          <span className="text-slate-400">Gestor:</span>
                           <span className="font-medium text-slate-700 ml-1">
-                            {gemocdocs.gestoresNome.join(", ")}
+                            {gemocdocs.gestorNome}
                           </span>
                         </div>
                       )}
-                      {gemocdocs?.fiscaisNome?.length > 0 && (
+                      {gemocdocs?.fiscalNome && (
                         <div>
-                          <span className="text-slate-400">Fiscal(is):</span>
+                          <span className="text-slate-400">Fiscal:</span>
                           <span className="font-medium text-slate-700 ml-1">
-                            {gemocdocs.fiscaisNome.join(", ")}
+                            {gemocdocs.fiscalNome}
                           </span>
                         </div>
                       )}
@@ -1086,6 +1077,11 @@ const ContractDetail = ({ contratoId, onClose }) => {
                       details?.dias_restantes <= 0
                     )
                       alerts.push({ type: "danger", text: "Contrato vencido" });
+                    if (details?.vl_divida > 0)
+                      alerts.push({
+                        type: "danger",
+                        text: `Dívida de ${formatCurrency(details.vl_divida)}`,
+                      });
                     if (
                       gs?.VALOR_DA_ULTIMA_MEDICAO &&
                       details?.medicoes?.length > 0
@@ -1321,38 +1317,30 @@ const ContractDetail = ({ contratoId, onClose }) => {
                 icon={Building2}
                 title="Gestão do Contrato"
                 summary={
-                  [...(gemocdocs?.gestoresNome || []), ...(gemocdocs?.fiscaisNome || [])]
+                  [gemocdocs?.gestorNome, gemocdocs?.fiscalNome]
                     .filter(Boolean)
                     .join(" | ") || ""
                 }
               >
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                  {gemocdocs?.gestoresNome?.length > 0 && (
+                  {gemocdocs?.gestorNome && (
                     <div>
                       <span className="text-[10px] font-semibold text-slate-400 uppercase block mb-1">
-                        Gestor(es)
+                        Gestor
                       </span>
-                      <div className="space-y-0.5">
-                        {gemocdocs.gestoresNome.map((nome, i) => (
-                          <span key={i} className="font-bold text-emerald-600 block text-sm break-words">
-                            {nome}
-                          </span>
-                        ))}
-                      </div>
+                      <span className="font-bold text-emerald-600 block text-sm break-words">
+                        {gemocdocs.gestorNome}
+                      </span>
                     </div>
                   )}
-                  {gemocdocs?.fiscaisNome?.length > 0 && (
+                  {gemocdocs?.fiscalNome && (
                     <div>
                       <span className="text-[10px] font-semibold text-slate-400 uppercase block mb-1">
-                        Fiscal(is) Técnico(s)
+                        Fiscal Técnico
                       </span>
-                      <div className="space-y-0.5">
-                        {gemocdocs.fiscaisNome.map((nome, i) => (
-                          <span key={i} className="font-bold text-emerald-600 block text-sm break-words">
-                            {nome}
-                          </span>
-                        ))}
-                      </div>
+                      <span className="font-bold text-emerald-600 block text-sm break-words">
+                        {gemocdocs.fiscalNome}
+                      </span>
                     </div>
                   )}
 
@@ -1603,7 +1591,7 @@ const ContractDetail = ({ contratoId, onClose }) => {
                                 )}
                               {a.ACRESCIMO_R &&
                                 parseFloat(a.ACRESCIMO_R) !== 0 && (
-                                  <span className="text-emerald-600">
+                                  <span className="text-green-600">
                                     +{formatCurrency(a.ACRESCIMO_R)}
                                   </span>
                                 )}
@@ -1643,28 +1631,77 @@ const ContractDetail = ({ contratoId, onClose }) => {
                   summary={gemocdocs.ordensServico.length + " registros"}
                 >
                   <div className="divide-y divide-emerald-100/20">
-                    {gemocdocs.ordensServico.map((os, idx) => (
-                      <div
-                        key={idx}
-                        className="px-4 sm:px-5 py-3 hover:bg-emerald-50/20 transition-colors"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-gradient-to-br from-emerald-500 to-emerald-600 text-white text-[9px] font-semibold">
-                              {os.TIPO_DE_OS || 'OS'}
-                            </span>
-                            <span className="text-[11px] sm:text-sm font-semibold text-slate-800">
-                              {os.DATA_OS ? formatDate(os.DATA_OS) : '—'}
-                            </span>
+                    {gemocdocs.ordensServico.map((os, idx) => {
+                      const numeroOsMatch = (os.OS_SEI || "").match(/(?:OS\s*n[ºo]?\s*)?(\d+\/\d{4})/i);
+                      const numeroOs = numeroOsMatch ? numeroOsMatch[1] : "";
+                      return (
+                        <div
+                          key={idx}
+                          className="px-4 sm:px-5 py-3 hover:bg-emerald-50/20 transition-colors"
+                        >
+                          <div className="flex items-center justify-between gap-2 flex-wrap">
+                            <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-gradient-to-br from-emerald-500 to-emerald-600 text-white text-[9px] font-semibold">
+                                {os.TIPO_DE_OS || 'OS'}
+                              </span>
+                              {numeroOs && (
+                                <span className="text-[11px] sm:text-sm font-bold text-slate-900" title={os.OS_SEI || ''}>
+                                  {numeroOs}
+                                </span>
+                              )}
+                              <span className="text-[11px] sm:text-sm font-semibold text-slate-800">
+                                {os.DATA_OS ? formatDate(os.DATA_OS) : '—'}
+                              </span>
+                            </div>
+                            {os.OS_SEI && (
+                              <span className="text-[10px] text-slate-400 truncate max-w-[220px]">
+                                {os.OS_SEI}
+                              </span>
+                            )}
                           </div>
-                          {os.OBJETO && (
-                            <span className="text-[10px] text-slate-400 truncate max-w-[180px] ml-2">
-                              {os.OBJETO}
-                            </span>
-                          )}
+                          <div className="flex items-center gap-3 text-[11px] text-slate-500 mt-2 flex-wrap">
+                            {os.LOTE && (
+                              <span className="inline-flex items-center gap-1">
+                                <span className="text-slate-400">Lote:</span>
+                                <span className="font-medium text-slate-700">{os.LOTE}</span>
+                              </span>
+                            )}
+                            {os.GERENCIA && (
+                              <span className="inline-flex items-center gap-1">
+                                <span className="text-slate-400">Gerência:</span>
+                                <span className="font-medium text-slate-700">{os.GERENCIA}</span>
+                              </span>
+                            )}
+                            {os.ASSINATURA_OS && (
+                              <span className="inline-flex items-center gap-1">
+                                <Clock size={11} strokeWidth={2} />
+                                <span className="text-slate-400">Assinatura:</span>
+                                <span className="font-medium text-slate-700">{formatDate(os.ASSINATURA_OS)}</span>
+                              </span>
+                            )}
+                            {os.PROXIMA_OS && (
+                              <span className="inline-flex items-center gap-1">
+                                <Clock size={11} strokeWidth={2} />
+                                <span className="text-slate-400">Próxima OS:</span>
+                                <span className="font-medium text-slate-700">{formatDate(os.PROXIMA_OS)}</span>
+                              </span>
+                            )}
+                            {os.DOCUMENTO_SEI_CONTRATO && (
+                              <span className="inline-flex items-center gap-1">
+                                <span className="text-slate-400">Doc. SEI:</span>
+                                <span className="font-medium text-slate-700">{os.DOCUMENTO_SEI_CONTRATO}</span>
+                              </span>
+                            )}
+                            {os.PROCESSO_CONTRATO && (
+                              <span className="inline-flex items-center gap-1">
+                                <span className="text-slate-400">Processo:</span>
+                                <span className="font-medium text-slate-700">{cleanNumberSuffix(os.PROCESSO_CONTRATO)}</span>
+                              </span>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </CollapsibleCard>
               )}
