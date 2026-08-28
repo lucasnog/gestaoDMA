@@ -11,7 +11,7 @@ import {
   Loader2,
   Search
 } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
+import { BarChart, Bar, LineChart, Line, AreaChart, Area, ReferenceLine, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import * as apiService from '../services/api.service';
 import Card from '../components/ui/Card';
@@ -41,6 +41,17 @@ const Medicoes = () => {
   const [medicoesLoading, setMedicoesLoading] = useState(true);
   const [preview, setPreview] = useState(null);
   const [buscaMedicao, setBuscaMedicao] = useState('');
+  const [chartTipo, setChartTipo] = useState('bar'); // 'bar' | 'line' | 'area'
+
+  // Gráfico de linha acumulada: running total do chartData
+  const chartDataAcumulado = useMemo(() => {
+    if (chartData.length === 0) return [];
+    let acc = 0;
+    return chartData.map(d => {
+      acc += d.valor;
+      return { ...d, acumulado: acc, contrato: kpiInvestido };
+    });
+  }, [chartData, kpiInvestido]);
 
   // Fecha prévia com a tecla ESC (padrão das outras abas)
   useEffect(() => {
@@ -682,7 +693,7 @@ const detailMap = React.useMemo(() => {
       {/* Chart Section */}
       <Card className="p-4 sm:p-6 border border-emerald-100/50 shadow-sm">
         <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <BarChart3 size={16} className="text-emerald-600" strokeWidth={2} />
             <span className="text-xs sm:text-sm font-bold text-slate-900 mr-1">Medições por:</span>
             <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5">
@@ -695,6 +706,25 @@ const detailMap = React.useMemo(() => {
                   onClick={() => { setDataRef(opt.key); setSelectedMes(null); setMonthPage(0); }}
                   className={`px-2.5 py-1 rounded-md text-[10px] sm:text-[11px] font-semibold transition-all ${
                     dataRef === opt.key
+                      ? 'bg-white text-emerald-700 shadow-sm'
+                      : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5">
+              {[
+                { key: 'bar', label: 'Barras' },
+                { key: 'line', label: 'Linha' },
+                { key: 'area', label: 'Área' },
+              ].map(opt => (
+                <button
+                  key={opt.key}
+                  onClick={() => setChartTipo(opt.key)}
+                  className={`px-2.5 py-1 rounded-md text-[10px] sm:text-[11px] font-semibold transition-all ${
+                    chartTipo === opt.key
                       ? 'bg-white text-emerald-700 shadow-sm'
                       : 'text-slate-500 hover:text-slate-700'
                   }`}
@@ -727,9 +757,46 @@ const detailMap = React.useMemo(() => {
           </div>
         </div>
         <div className="h-48 sm:h-64 chart-no-focus">
-          {pagedChartData.length > 0 ? (
+          {chartTipo === 'bar' ? (
+            pagedChartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={pagedChartData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}
+                  onClick={(data) => {
+                    if (!data?.activeLabel) return;
+                    const periodo = data.activeLabel;
+                    setSelectedMes(prev => prev === periodo ? null : periodo);
+                    setTablePage(1);
+                  }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis
+                    dataKey="periodo"
+                    tick={{ fontSize: 10, fill: '#94a3b8' }}
+                    tickLine={false}
+                    axisLine={{ stroke: '#e2e8f0' }}
+                    tickFormatter={(v) => getPeriodoLabel(v, chartPeriodo)}
+                  />
+                  <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} tickLine={false} axisLine={false}
+                    tickFormatter={(v) => `R$ ${(v / 1000000).toFixed(0)}M`} />
+                  <Tooltip
+                    contentStyle={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
+                    formatter={(value) => [formatCurrency(value), 'Valor']}
+                    labelFormatter={(label) => getPeriodoLabel(label, chartPeriodo)}
+                    cursor={{ fill: '#f0fdf4' }}
+                  />
+                  <Bar dataKey="valor" radius={[4, 4, 0, 0]} maxBarSize={40} style={{ cursor: 'pointer', outline: 'none' }}>
+                    {pagedChartData.map((entry, idx) => (
+                      <Cell key={idx} fill={entry.periodo === selectedMes ? '#059669' : '#D1D5DB'} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-full text-slate-300 text-sm">Nenhum dado de medição disponível</div>
+            )
+          ) : chartDataAcumulado.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={pagedChartData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}
+              <AreaChart data={chartDataAcumulado} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}
                 onClick={(data) => {
                   if (!data?.activeLabel) return;
                   const periodo = data.activeLabel;
@@ -737,34 +804,55 @@ const detailMap = React.useMemo(() => {
                   setTablePage(1);
                 }}
               >
+                <defs>
+                  <linearGradient id="gradAcumulado" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#059669" stopOpacity={0.35} />
+                    <stop offset="95%" stopColor="#059669" stopOpacity={0.02} />
+                  </linearGradient>
+                  <linearGradient id="gradContrato" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="#94a3b8" stopOpacity={0.5} />
+                    <stop offset="100%" stopColor="#94a3b8" stopOpacity={0.5} />
+                  </linearGradient>
+                </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <ReferenceLine y={kpiInvestido} stroke="#94a3b8" strokeDasharray="6 4" strokeWidth={1}
+                  label={{ value: 'Valor do Contrato', position: 'insideTopRight', fill: '#94a3b8', fontSize: 10 }} />
                 <XAxis
                   dataKey="periodo"
                   tick={{ fontSize: 10, fill: '#94a3b8' }}
                   tickLine={false}
                   axisLine={{ stroke: '#e2e8f0' }}
                   tickFormatter={(v) => getPeriodoLabel(v, chartPeriodo)}
+                  minTickGap={20}
                 />
-                <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} tickLine={false} axisLine={false}
+                <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} tickLine={false} axisLine={false} domain={[0, 'dataMax']}
                   tickFormatter={(v) => `R$ ${(v / 1000000).toFixed(0)}M`} />
                 <Tooltip
                   contentStyle={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
-                  formatter={(value) => [formatCurrency(value), 'Valor']}
+                  formatter={(value, name) => {
+                    if (name === 'acumulado') return [formatCurrency(value), 'Medido acumulado'];
+                    if (name === 'contrato') return [formatCurrency(value), 'Valor do Contrato'];
+                    return [formatCurrency(value), 'Valor'];
+                  }}
                   labelFormatter={(label) => getPeriodoLabel(label, chartPeriodo)}
-                  cursor={{ fill: '#f0fdf4' }}
                 />
-                <Bar dataKey="valor" radius={[4, 4, 0, 0]} maxBarSize={40} style={{ cursor: 'pointer', outline: 'none' }}>
-                  {pagedChartData.map((entry, idx) => (
-                    <Cell key={idx} fill={entry.periodo === selectedMes ? '#059669' : '#D1D5DB'} />
-                  ))}
-                </Bar>
-              </BarChart>
+                {chartTipo === 'area' && (
+                  <Area type="monotone" dataKey="acumulado" stroke="#059669" strokeWidth={2.5}
+                    fill="url(#gradAcumulado)" style={{ cursor: 'pointer', outline: 'none' }}
+                    activeDot={{ r: 5, fill: '#059669', stroke: '#fff', strokeWidth: 2 }} />
+                )}
+                {chartTipo === 'line' && (
+                  <Line type="monotone" dataKey="acumulado" stroke="#059669" strokeWidth={2.5}
+                    dot={{ r: 3, fill: '#059669', strokeWidth: 0 }} activeDot={{ r: 5, fill: '#059669', stroke: '#fff', strokeWidth: 2 }}
+                    style={{ cursor: 'pointer', outline: 'none' }} />
+                )}
+              </AreaChart>
             </ResponsiveContainer>
           ) : (
             <div className="flex items-center justify-center h-full text-slate-300 text-sm">Nenhum dado de medição disponível</div>
           )}
         </div>
-        {totalChartPages > 1 && (
+        {chartTipo === 'bar' && totalChartPages > 1 && (
           <div className="flex items-center justify-center gap-3 mt-4 pt-3 border-t border-emerald-100/30">
             <button onClick={() => setMonthPage(safeChartPage + 1)} disabled={safeChartPage >= totalChartPages - 1}
               className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-500 hover:bg-emerald-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
