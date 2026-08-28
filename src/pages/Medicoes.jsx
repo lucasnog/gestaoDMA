@@ -11,7 +11,7 @@ import {
   Loader2,
   Search
 } from 'lucide-react';
-import { BarChart, Bar, LineChart, Line, AreaChart, Area, ReferenceLine, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
+import { BarChart, Bar, LineChart, Line, ReferenceLine, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import * as apiService from '../services/api.service';
 import Card from '../components/ui/Card';
@@ -714,25 +714,6 @@ const detailMap = React.useMemo(() => {
                 </button>
               ))}
             </div>
-            <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5">
-              {[
-                { key: 'bar', label: 'Barras' },
-                { key: 'line', label: 'Linha' },
-                { key: 'area', label: 'Área' },
-              ].map(opt => (
-                <button
-                  key={opt.key}
-                  onClick={() => setChartTipo(opt.key)}
-                  className={`px-2.5 py-1 rounded-md text-[10px] sm:text-[11px] font-semibold transition-all ${
-                    chartTipo === opt.key
-                      ? 'bg-white text-emerald-700 shadow-sm'
-                      : 'text-slate-500 hover:text-slate-700'
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
           </div>
           <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5">
             {[
@@ -747,6 +728,24 @@ const detailMap = React.useMemo(() => {
                 onClick={() => { setChartPeriodo(opt.key); setSelectedMes(null); }}
                 className={`px-2.5 py-1 rounded-md text-[10px] sm:text-[11px] font-semibold transition-all ${
                   chartPeriodo === opt.key
+                    ? 'bg-white text-emerald-700 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5">
+            {[
+              { key: 'bar', label: 'Barras' },
+              { key: 'line', label: 'Linha' },
+            ].map(opt => (
+              <button
+                key={opt.key}
+                onClick={() => setChartTipo(opt.key)}
+                className={`px-2.5 py-1 rounded-md text-[10px] sm:text-[11px] font-semibold transition-all ${
+                  chartTipo === opt.key
                     ? 'bg-white text-emerald-700 shadow-sm'
                     : 'text-slate-500 hover:text-slate-700'
                 }`}
@@ -796,7 +795,7 @@ const detailMap = React.useMemo(() => {
             )
           ) : chartDataAcumulado.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartDataAcumulado} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}
+              <LineChart data={chartDataAcumulado} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}
                 onClick={(data) => {
                   if (!data?.activeLabel) return;
                   const periodo = data.activeLabel;
@@ -804,16 +803,6 @@ const detailMap = React.useMemo(() => {
                   setTablePage(1);
                 }}
               >
-                <defs>
-                  <linearGradient id="gradAcumulado" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#059669" stopOpacity={0.35} />
-                    <stop offset="95%" stopColor="#059669" stopOpacity={0.02} />
-                  </linearGradient>
-                  <linearGradient id="gradContrato" x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0%" stopColor="#94a3b8" stopOpacity={0.5} />
-                    <stop offset="100%" stopColor="#94a3b8" stopOpacity={0.5} />
-                  </linearGradient>
-                </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <ReferenceLine y={kpiInvestido} stroke="#94a3b8" strokeDasharray="6 4" strokeWidth={1}
                   label={{ value: 'Valor do Contrato', position: 'insideTopRight', fill: '#94a3b8', fontSize: 10 }} />
@@ -825,7 +814,8 @@ const detailMap = React.useMemo(() => {
                   tickFormatter={(v) => getPeriodoLabel(v, chartPeriodo)}
                   minTickGap={20}
                 />
-                <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} tickLine={false} axisLine={false} domain={[0, 'dataMax']}
+                <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} tickLine={false} axisLine={false}
+                  domain={[0, kpiInvestido > 0 ? kpiInvestido : 'dataMax']}
                   tickFormatter={(v) => `R$ ${(v / 1000000).toFixed(0)}M`} />
                 <Tooltip
                   contentStyle={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
@@ -836,17 +826,10 @@ const detailMap = React.useMemo(() => {
                   }}
                   labelFormatter={(label) => getPeriodoLabel(label, chartPeriodo)}
                 />
-                {chartTipo === 'area' && (
-                  <Area type="monotone" dataKey="acumulado" stroke="#059669" strokeWidth={2.5}
-                    fill="url(#gradAcumulado)" style={{ cursor: 'pointer', outline: 'none' }}
-                    activeDot={{ r: 5, fill: '#059669', stroke: '#fff', strokeWidth: 2 }} />
-                )}
-                {chartTipo === 'line' && (
-                  <Line type="monotone" dataKey="acumulado" stroke="#059669" strokeWidth={2.5}
-                    dot={{ r: 3, fill: '#059669', strokeWidth: 0 }} activeDot={{ r: 5, fill: '#059669', stroke: '#fff', strokeWidth: 2 }}
-                    style={{ cursor: 'pointer', outline: 'none' }} />
-                )}
-              </AreaChart>
+                <Line type="monotone" dataKey="acumulado" stroke="#059669" strokeWidth={2.5}
+                  dot={{ r: 3, fill: '#059669', strokeWidth: 0 }} activeDot={{ r: 5, fill: '#059669', stroke: '#fff', strokeWidth: 2 }}
+                  style={{ cursor: 'pointer', outline: 'none' }} />
+              </LineChart>
             </ResponsiveContainer>
           ) : (
             <div className="flex items-center justify-center h-full text-slate-300 text-sm">Nenhum dado de medição disponível</div>
