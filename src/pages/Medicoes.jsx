@@ -43,16 +43,6 @@ const Medicoes = () => {
   const [buscaMedicao, setBuscaMedicao] = useState('');
   const [chartTipo, setChartTipo] = useState('bar'); // 'bar' | 'line' | 'area'
 
-  // Gráfico de linha acumulada: running total do chartData
-  const chartDataAcumulado = useMemo(() => {
-    if (chartData.length === 0) return [];
-    let acc = 0;
-    return chartData.map(d => {
-      acc += d.valor;
-      return { ...d, acumulado: acc, contrato: kpiInvestido };
-    });
-  }, [chartData, kpiInvestido]);
-
   // Fecha prévia com a tecla ESC (padrão das outras abas)
   useEffect(() => {
     if (!preview) return;
@@ -380,6 +370,16 @@ const detailMap = React.useMemo(() => {
   const kpiInvestido = contratosKpi.reduce((acc, c) => acc + getVlTotal(c), 0);
   const kpiComMedicao = contratosKpi.filter((c) => getVlMedido(c) > 0).length;
   const kpiTotal = contratosKpi.length;
+
+  // Gráfico de linha acumulada: running total do chartData
+  const chartDataAcumulado = React.useMemo(() => {
+    if (chartData.length === 0) return [];
+    let acc = 0;
+    return chartData.map(d => {
+      acc += d.valor;
+      return { ...d, acumulado: acc, contrato: kpiInvestido };
+    });
+  }, [chartData, kpiInvestido]);
  
   // Valor medido no período selecionado (a partir do monthlyDetailFiltrado)
   var monthlyDetailFiltradoKpi = monthlyDetailPorPeriodo;
