@@ -3,8 +3,6 @@ import {
   getAuth,
   GoogleAuthProvider,
   signInWithPopup,
-  signInWithRedirect,
-  getRedirectResult,
   signOut,
 } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, getDocs, collection, updateDoc, serverTimestamp } from 'firebase/firestore';
@@ -25,24 +23,26 @@ const db = getFirestore(app);
 const googleProvider = new GoogleAuthProvider();
 
 /**
- * Processa o resultado do redirect (chamar na inicializacao do app)
- * Retorna { user, token } ou null se nao veio de redirect
+ * Detecta browsers embutidos / ambientes com storage particionado
+ * (WhatsApp, Instagram, Facebook, WebView Android etc.), onde o
+ * signInWithRedirect / popup do Firebase falham com
+ * "missing initial state".
  */
-export async function handleRedirectResult() {
-  try {
-    const result = await getRedirectResult(auth);
-    if (!result) return null;
-    const user = result.user;
-    const token = await user.getIdToken();
-    const userData = await saveOrUpdateUser(user);
-    return { user: userData, token };
-  } catch (err) {
-    // Erro "missing initial state" = sessionStorage inacessível (mobile, in-app browser)
-    // Limpa estado pendente do redirect para não travar
-    console.error('[Firebase] Erro no redirect:', err);
-    try { await signOut(auth); } catch (e) { /* ignora */ }
-    return null;
-  }
+export function isInAppBrowser() {
+  if (typeof navigator === 'undefined') return false;
+  const ua = `${navigator.userAgent} ${navigator.vendor || ''}`;
+  if (/FBAN|FBAV|Instagram|WhatsApp|WAWebView|Line\/|LinkedInApp|Twitter|Snapchat|Pinterest|TikTok/i.test(ua)) return true;
+  if (/Android/.test(ua) && /wv/.test(navigator.userAgent)) return true;
+  return false;
+}
+
+/**
+ * Detecta dispositivos móveis (touch + tela pequena ou UA mobile)
+ */
+export function isMobile() {
+  if (typeof navigator === 'undefined') return false;
+  return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+    || (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
 }
 
 /**
@@ -161,14 +161,6 @@ export async function loginWithGoogle() {
   const token = await user.getIdToken();
   const userData = await saveOrUpdateUser(user);
   return { user: userData, token };
-}
-
-/**
- * Login com Google via redirect (fallback para quando popup é bloqueado)
- */
-export async function loginWithGoogleRedirect() {
-  await signInWithRedirect(auth, googleProvider);
-  // Apos o redirect, a pagina recarrega e handleRedirectResult pega o resultado
 }
 
 /**

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { loginWithGoogle, loginWithGoogleRedirect, handleRedirectResult, logoutFirebase, getAllUsers, setUserTipo, setUserStatus, setUserPermissoes } from '../services/firebase';
+import { loginWithGoogle, logoutFirebase, isInAppBrowser, getAllUsers, setUserTipo, setUserStatus, setUserPermissoes } from '../services/firebase';
 import { setAuthToken, clearAuthToken, loginFirebaseBackend, verifyToken, logoutBackend } from '../services/api.service';
 
 // Intervalo de verificação de sessão (15 minutos)
@@ -80,48 +80,11 @@ export const useAuthStore = create(
             },
 
             /**
-             * Verifica resultado de redirect (chamar na montagem do App)
+             * Verifica se está em um browser embutido (storage particionado)
+             * onde o popup/redirect do Firebase falha. Nesse caso, o usuário
+             * deve abrir o site no navegador externo.
              */
-            checkRedirectResult: async () => {
-                try {
-                    const result = await handleRedirectResult();
-                    if (result) {
-                        const { user, token: firebaseToken } = result;
-
-                        // Tenta trocar Firebase token por JWT do backend
-                        let finalToken = firebaseToken;
-                        let backendUserData = null;
-                        try {
-                            const backendAuth = await loginFirebaseBackend(firebaseToken);
-                            finalToken = backendAuth.token;
-                            backendUserData = backendAuth.user;
-                            console.log('[Auth] Token Firebase trocado por JWT do backend');
-                        } catch (err) {
-                            console.warn('[Auth] Backend não disponível, usando token Firebase:', err.message);
-                            setAuthToken(firebaseToken);
-                        }
-
-                        // Mescla dados validados pelo backend
-                        const mergedUser = backendUserData
-                        ? { ...user, tipo: backendUserData.tipo, status: backendUserData.status, permissoes: backendUserData.permissoes }
-                        : user;
-
-                        set({
-                            user: mergedUser,
-                            token: finalToken,
-                            isAuthenticated: true,
-                            loading: false,
-                            error: null
-                        });
-                        setAuthToken(finalToken);
-                        get().startSessionVerification();
-                        return { user: mergedUser, token: finalToken };
-                    }
-                } catch (err) {
-                    console.warn('[auth] Redirect result error:', err.message);
-                }
-                return null;
-            },
+            isInAppBrowser: () => isInAppBrowser(),
 
             loginGoogle: async () => {
                 set({ loading: true, error: null });
@@ -168,32 +131,20 @@ export const useAuthStore = create(
                     if (code === 'auth/popup-closed-by-user') {
                         msg = 'Login cancelado';
                     } else if (code === 'auth/popup-blocked') {
-                        msg = 'Popup bloqueado pelo navegador. Tente novamente ou use o login alternativo.';
+                        msg = 'Popup bloqueado pelo navegador. Permita popups para este site e tente novamente.';
                     } else if (code === 'auth/unauthorized-domain') {
                         msg = 'Domínio não autorizado. Adicione este domínio no Firebase Console.';
                     } else if (code === 'auth/cancelled-popup-request') {
                         msg = 'Login cancelado';
                     } else if (code === 'auth/operation-not-allowed') {
                         msg = 'Login com Google não habilitado. Ative no Firebase Console > Authentication > Sign-in method.';
+                    } else if (code === 'auth/missing-initial-state') {
+                        msg = 'O navegador bloqueou o login. Se você está acessando de dentro de um aplicativo (WhatsApp, Instagram etc.), abra o site no navegador padrão (Chrome ou Safari) e tente novamente.';
                     } else if (err.message?.includes('offline') || err.message?.includes('Failed to get document')) {
                         msg = 'Firestore não configurado. Crie o banco no Firebase Console > Firestore Database > Criar banco.';
                     }
 
                     set({ loading: false, error: msg });
-                    throw err;
-                }
-            },
-
-            /**
-             * Login alternativo via redirect (fallback para popup bloqueado)
-             */
-            loginGoogleRedirect: async () => {
-                set({ loading: true, error: null });
-                try {
-                    await loginWithGoogleRedirect();
-                    // A pagina sera recarregada pelo redirect
-                } catch (err) {
-                    set({ loading: false, error: 'Erro ao redirecionar: ' + err.message });
                     throw err;
                 }
             },

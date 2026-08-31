@@ -7,8 +7,8 @@ const Login = () => {
   const loading = useAuthStore((s) => s.loading);
   const error = useAuthStore((s) => s.error);
   const loginGoogle = useAuthStore((s) => s.loginGoogle);
-  const loginGoogleRedirect = useAuthStore((s) => s.loginGoogleRedirect);
   const clearError = useAuthStore((s) => s.clearError);
+  const isInAppBrowser = useAuthStore((s) => s.isInAppBrowser);
   const navigate = useNavigate();
   // Garante que a navegação pós-login aconteça só uma vez (evita a corrida
   // entre checkRedirectResult e o efeito de isAuthenticated, que causava o
@@ -21,13 +21,7 @@ const Login = () => {
     navigate('/', { replace: true });
   }, [navigate]);
 
-  // Verifica resultado de redirect (login alternativo) na montagem
-  const checkRedirectResult = useAuthStore((s) => s.checkRedirectResult);
-  useEffect(() => {
-    checkRedirectResult().then((result) => {
-      if (result) goHome();
-    });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const inApp = isInAppBrowser();
 
   // Se ja estiver logado, redireciona pro dashboard
   useEffect(() => {
@@ -115,15 +109,18 @@ const Login = () => {
               )}
             </button>
 
-            {/* Fallback: redirect (caso popup seja bloqueado) */}
-            {error && error.includes('Popup bloqueado') && (
-              <button
-                onClick={loginGoogleRedirect}
-                disabled={loading}
-                className="mt-3 w-full flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 rounded-xl font-semibold text-xs text-slate-500 border border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition-all touch-manipulation"
-              >
-                Login alternativo (redirecionamento)
-              </button>
+            {/* Aviso: browser embutido (WhatsApp, Instagram etc.) */}
+            {inApp && (
+              <div className="mb-4 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-700 text-center leading-relaxed">
+                Você está acessando de dentro de um aplicativo. Para fazer login, abra o site no navegador padrão do seu celular (Chrome ou Safari).
+              </div>
+            )}
+
+            {/* Sugestão para popup bloqueado (não exibe se já está em in-app, pois o aviso acima já apareceu) */}
+            {error && error.includes('Popup bloqueado') && !inApp && (
+              <div className="mb-4 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-700 text-center">
+                Permita popups para este site nas configurações do navegador e tente novamente.
+              </div>
             )}
           </div>
 
