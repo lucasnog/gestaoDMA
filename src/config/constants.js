@@ -92,7 +92,8 @@ export const MODULOS_DISPONIVEIS = [
   { path: '/aditivos', label: 'Aditivos', abrev: 'Adit' },
   { path: '/apostilas', label: 'Apostilas', abrev: 'Apost' },
   { path: '/os', label: 'Ordens de Servico', abrev: 'OS' },
-  { path: '/empresas', label: 'Empresas', abrev: 'Emp' },
+  { path: '/empenhos', label: 'Empenhos', abrev: 'Emp' },
+  { path: '/empresas', label: 'Empresas', abrev: 'Empr' },
   { path: '/gestores', label: 'Gestores', abrev: 'Gest' },
 ];
 
