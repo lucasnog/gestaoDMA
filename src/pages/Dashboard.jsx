@@ -222,7 +222,7 @@ const Dashboard = () => {
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
           {sections.map((sec) => {
             const c = SECTION_COLORS[sec.color] || SECTION_COLORS.teal;
-            const count = sectionStats?.[sec.key] ?? '—';
+            const count = sec.key === 'empresas' ? 3 : (sectionStats?.[sec.key] ?? '—');
             return (
               <div
                 key={sec.path}

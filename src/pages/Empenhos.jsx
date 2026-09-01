@@ -6,7 +6,11 @@ import {
   Download,
   BadgeCheck,
   Clock,
-  X
+  X,
+  Calendar,
+  RefreshCw,
+  History,
+  HelpCircle
 } from 'lucide-react';
 import { formatCurrency } from '../utils/formatters';
 import Card from '../components/ui/Card';
@@ -23,6 +27,38 @@ const TIPO_BADGE = {
   X: 'neutral',
 };
 
+// ─── Significado de cada tipo de empenho ──────────────────────────────
+const TIPO_INFO = {
+  EXC: {
+    nome: 'Exercício Corrente',
+    descricao: 'Empenho do orçamento do exercício atual (ano vigente). É o tipo padrão para novas despesas.',
+    icon: Calendar,
+    color: 'from-sky-500 to-blue-600',
+    shadow: 'shadow-sky-500/20',
+  },
+  DEA: {
+    nome: 'Despesa de Exercícios Anteriores',
+    descricao: 'Despesas cujo fato gerador ocorreu em exercícios anteriores e são pagas no exercício atual.',
+    icon: History,
+    color: 'from-amber-500 to-orange-600',
+    shadow: 'shadow-amber-500/20',
+  },
+  RAP: {
+    nome: 'Restos a Pagar',
+    descricao: 'Empenhos emitidos em anos anteriores que ainda não foram pagos, inscritos em restos a pagar.',
+    icon: RefreshCw,
+    color: 'from-emerald-500 to-teal-600',
+    shadow: 'shadow-emerald-500/20',
+  },
+  X: {
+    nome: 'Sem Classificação (X)',
+    descricao: 'Empenho sem classificação específica de tipo (não identifica EXC, DEA ou RAP).',
+    icon: HelpCircle,
+    color: 'from-slate-500 to-slate-600',
+    shadow: 'shadow-slate-500/20',
+  },
+};
+
 const Empenhos = () => {
   const [empenhos, setEmpenhos] = useState([]);
   const [resumoAnos, setResumoAnos] = useState([]);
@@ -33,6 +69,18 @@ const Empenhos = () => {
   const [page, setPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [exportOpen, setExportOpen] = useState(false);
+
+  // Totais por tipo de empenho
+  const totaisPorTipo = useMemo(() => {
+    const map = {};
+    empenhos.forEach(e => {
+      const tipo = e.tipo || 'X';
+      if (!map[tipo]) map[tipo] = { total: 0, qtd: 0 };
+      map[tipo].total += parseFloat(e.saldo_empenhado || 0);
+      map[tipo].qtd += 1;
+    });
+    return map;
+  }, [empenhos]);
 
   useEffect(() => {
     let ativo = true;
@@ -183,6 +231,38 @@ const Empenhos = () => {
             </Card>
           </>
         )}
+      </div>
+
+      {/* Tipos de empenho */}
+      <div>
+        <div className="flex items-center gap-2.5 mb-4">
+          <div className="w-1 h-6 sm:h-7 rounded-full bg-emerald-600 shadow-sm shadow-emerald-500/20" />
+          <div>
+            <h3 className="text-xs sm:text-sm font-bold text-slate-900">Tipos de Empenho</h3>
+            <p className="text-[10px] sm:text-[11px] text-slate-400">Classificação e total por tipo</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          {['EXC', 'DEA', 'RAP', 'X'].map(tipo => {
+            const info = TIPO_INFO[tipo] || TIPO_INFO.X;
+            const dados = totaisPorTipo[tipo] || { total: 0, qtd: 0 };
+            const Icon = info.icon;
+            return (
+              <Card key={tipo} className="p-4 sm:p-5 border border-emerald-100/50 shadow-sm hover:shadow-card transition-all duration-300 group">
+                <div className="flex items-start justify-between mb-3">
+                  <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br ${info.color} flex items-center justify-center shadow-sm ${info.shadow} group-hover:scale-110 transition-transform duration-300`}>
+                    <Icon size={16} className="text-white" strokeWidth={2} />
+                  </div>
+                  <Badge variant={TIPO_BADGE[tipo] || 'neutral'} size="sm">{tipo}</Badge>
+                </div>
+                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">{info.nome}</p>
+                <p className="text-sm sm:text-base font-bold text-slate-900 tracking-tight break-words">{formatCurrency(dados.total)}</p>
+                <p className="text-[10px] text-slate-400 mt-1.5 leading-relaxed">{info.descricao}</p>
+                <p className="text-[9px] text-slate-300 mt-2">{dados.qtd} empenho(s)</p>
+              </Card>
+            );
+          })}
+        </div>
       </div>
 
       {/* Resumo por ano */}
