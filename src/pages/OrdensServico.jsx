@@ -121,15 +121,19 @@ const OrdensServico = () => {
       if (nomeArq.includes(contratoPasta)) {
         // Tenta bater pela data da OS no nome do arquivo (ex: 2024-08-15)
         const dataOs = (os.DATA_OS || '').replace(/-/g, '');
-        if (dataOs && nomeArq.includes(dataOs)) return d;
+        const semHifen = dataOs.replace(/-/g, '');
+        if (dataOs && (nomeArq.includes(dataOs) || nomeArq.includes(semHifen))) return d;
         // Fallback: se for o único documento desse contrato, usa
         const doContrato = docsContrato.filter(x => x.arquivo && String(x.arquivo).toLowerCase().includes(contratoPasta));
         if (doContrato.length === 1) return d;
       }
     }
     // Fallback: match por SEI no objeto
-    const seiMatch = osNome.match(/\b\d{11,17}\b/);
+    const seiMatch = osNome.match(/\b\d{8,17}\b/);
     if (seiMatch && docsMap.has(seiMatch[0])) return docsMap.get(seiMatch[0]);
+    // Fallback 2: match por SEI no OS_SEI (ex: "94/2023 (48712027)")
+    const seiMatch2 = (os.OS_SEI || '').match(/\b(\d{8,17})\b/);
+    if (seiMatch2 && docsMap.has(seiMatch2[1])) return docsMap.get(seiMatch2[1]);
     return null;
   };
 
