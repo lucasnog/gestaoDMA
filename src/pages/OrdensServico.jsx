@@ -634,9 +634,6 @@ const OrdensServico = () => {
                       </td>
                       <td className="px-3 sm:px-6 py-3 sm:py-4">
                         <div className="flex items-center gap-2">
-                          <span className="inline-flex items-center gap-1 px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-md bg-emerald-50 border border-emerald-100/50 text-[9px] sm:text-[11px] font-semibold text-emerald-700">
-                            {os.BLOCO_NORM || '—'}
-                          </span>
                           <div className="min-w-0">
                             <span className="text-[11px] sm:text-sm font-semibold text-slate-900 truncate block">{os.CONTRATO}</span>
                             <span className="text-[9px] sm:text-[10px] text-slate-400 truncate block">{os.SEGMENTO || '—'}</span>
