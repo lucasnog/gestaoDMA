@@ -20,7 +20,6 @@ import Skeleton from '../components/ui/Skeleton';
 import Pagination from '../components/ui/Pagination';
 import ExpandableText from '../components/ui/ExpandableText';
 import ExportDialog from '../components/ui/ExportDialog';
-import ContractDetail from '../components/contract/ContractDetail';
 import { useDashboardContext } from '../layouts/DashboardLayout';
 import { API_URL, expandirSegmentosSelecionados } from '../config/constants';
 
@@ -40,7 +39,6 @@ const OrdensServico = () => {
   const [loading, setLoading] = useState(true);
   const [chartPeriodo, setChartPeriodo] = useState('mes'); // 'dia' | 'mes' | 'trimestre' | 'semestre' | 'ano'
   const [selectedPeriodo, setSelectedPeriodo] = useState(null); // período clicado no gráfico
-  const [selectedContratoId, setSelectedContratoId] = useState(null);
   const [chartPage, setChartPage] = useState(0);
   const CHART_PER_PAGE = 12;
   const [selectedIds, setSelectedIds] = useState([]);
@@ -636,13 +634,6 @@ const OrdensServico = () => {
                             <span className="text-[11px] sm:text-sm font-semibold text-slate-900 truncate block">{os.CONTRATO}</span>
                             <span className="text-[9px] sm:text-[10px] text-slate-400 truncate block">{os.SEGMENTO || '—'}</span>
                           </div>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); setSelectedContratoId(os.CONTRATO); }}
-                            className="p-1 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors shrink-0"
-                            title="Ver detalhes do contrato"
-                          >
-                            <Eye size={13} strokeWidth={2} />
-                          </button>
                         </div>
                       </td>
                       <td className="px-3 sm:px-6 py-3 sm:py-4">
@@ -724,14 +715,6 @@ const OrdensServico = () => {
         filename="ordens-servico"
         title="Exportar Ordens de Serviço"
       />
-
-      {/* Contract Detail Sidebar */}
-      {selectedContratoId && (
-        <ContractDetail
-          contratoId={selectedContratoId}
-          onClose={() => setSelectedContratoId(null)}
-        />
-      )}
 
       {/* ─── Prévia do PDF (tela cheia) ─────────── */}
       {previewDoc && (
