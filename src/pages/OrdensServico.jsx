@@ -589,9 +589,6 @@ const OrdensServico = () => {
                 <th className="px-3 sm:px-6 py-3 text-left text-[9px] sm:text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
                   Contrato
                 </th>
-                <th onClick={() => handleSort('LOTE')} className="px-3 sm:px-6 py-3 text-left text-[9px] sm:text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none">
-                  Lote{sortConfig.key === 'LOTE' ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
-                </th>
                 <th onClick={() => handleSort('TIPO_DE_OS')} className="px-3 sm:px-6 py-3 text-left text-[9px] sm:text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none">
                   Tipo{sortConfig.key === "TIPO_DE_OS" ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
                 </th>
@@ -611,7 +608,7 @@ const OrdensServico = () => {
             <tbody>
               {pagedOs.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-3 sm:px-6 py-8 text-center text-slate-400 text-xs">
+                  <td colSpan={8} className="px-3 sm:px-6 py-8 text-center text-slate-400 text-xs">
                     Nenhuma Ordem de Serviço encontrada
                   </td>
                 </tr>
@@ -628,8 +625,7 @@ const OrdensServico = () => {
                   return (
                     <tr
                       key={`${os.CONTRATO}-${os.DATA_OS}-${idx}`}
-                      onClick={() => setSelectedContratoId(os.CONTRATO)}
-                      className="group cursor-pointer transition-all duration-200 hover:bg-emerald-50/40"
+                      className="group transition-all duration-200 hover:bg-emerald-50/40"
                     >
                       <td className="px-3 py-3 w-8" onClick={function(e) { e.stopPropagation(); }}>
                         <input type="checkbox" checked={selectedIds.includes(getOsId(os))} onChange={function() { toggleSelect(getOsId(os)); }} className="w-3.5 h-3.5 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer" />
@@ -640,10 +636,14 @@ const OrdensServico = () => {
                             <span className="text-[11px] sm:text-sm font-semibold text-slate-900 truncate block">{os.CONTRATO}</span>
                             <span className="text-[9px] sm:text-[10px] text-slate-400 truncate block">{os.SEGMENTO || '—'}</span>
                           </div>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setSelectedContratoId(os.CONTRATO); }}
+                            className="p-1 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors shrink-0"
+                            title="Ver detalhes do contrato"
+                          >
+                            <Eye size={13} strokeWidth={2} />
+                          </button>
                         </div>
-                      </td>
-                      <td className="px-3 sm:px-6 py-3 sm:py-4">
-                        <span className="text-[11px] sm:text-sm font-semibold text-slate-900">{os.LOTE || '—'}</span>
                       </td>
                       <td className="px-3 sm:px-6 py-3 sm:py-4">
                         <span className={`inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md bg-gradient-to-br ${tipoCor.bg} text-white text-[9px] sm:text-[10px] font-semibold shadow-xs`}>
