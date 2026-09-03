@@ -604,7 +604,7 @@ const OrdensServico = () => {
                 <th onClick={() => handleSort('DATA_OS')} className="px-3 sm:px-6 py-3 text-left text-[9px] sm:text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none">
                   Data{sortConfig.key === "DATA_OS" ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
                 </th>
-                <th className="px-3 sm:px-6 py-3 text-left text-[9px] sm:text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Objeto</th>
+                <th className="px-3 sm:px-6 py-3 text-left text-[9px] sm:text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Observação</th>
                 <th className="px-3 sm:px-6 py-3 text-center text-[9px] sm:text-[10px] font-semibold text-slate-400 uppercase tracking-wider w-28">PDF</th>
               </tr>
             </thead>
@@ -623,6 +623,8 @@ const OrdensServico = () => {
                   const numeroOs = numeroOsMatch ? numeroOsMatch[1] : '';
                   const seiMatch = (os.OS_SEI || '').match(/\(([^)]+)\)/);
                   const sei = seiMatch ? seiMatch[1] : '';
+                  const obsMatch = (os.OS_SEI || '').match(/\)\s*[-–—]\s*(.+)$/);
+                  const observacao = obsMatch ? obsMatch[1].trim() : '';
                   return (
                     <tr
                       key={`${os.CONTRATO}-${os.DATA_OS}-${idx}`}
@@ -670,7 +672,11 @@ const OrdensServico = () => {
                         </span>
                       </td>
                       <td className="px-3 sm:px-6 py-3 sm:py-4 min-w-[160px] sm:min-w-0">
-                        <ExpandableText text={os.OBJETO_EXIBICAO} maxLines={2} className="text-[10px] sm:text-[11px] text-slate-600 leading-snug" />
+                        {observacao ? (
+                          <ExpandableText text={observacao} maxLines={2} className="text-[10px] sm:text-[11px] text-slate-600 leading-snug" />
+                        ) : (
+                          <span className="text-xs text-slate-300">—</span>
+                        )}
                       </td>
                       <td className="px-3 sm:px-6 py-3 text-center" onClick={function(e) { e.stopPropagation(); }}>
                         {findDoc(os) ? (
