@@ -9,8 +9,7 @@ import {
   X,
   Calendar,
   RefreshCw,
-  History,
-  HelpCircle
+  History
 } from 'lucide-react';
 import { formatCurrency } from '../utils/formatters';
 import Card from '../components/ui/Card';
@@ -24,7 +23,14 @@ const TIPO_BADGE = {
   EXC: 'info',
   DEA: 'warning',
   RAP: 'success',
-  X: 'neutral',
+  X: 'success',
+};
+
+const TIPO_LABEL = {
+  EXC: 'EXC',
+  DEA: 'DEA',
+  RAP: 'RAP',
+  X: 'Liquidado',
 };
 
 // ─── Significado de cada tipo de empenho ──────────────────────────────
@@ -51,11 +57,11 @@ const TIPO_INFO = {
     shadow: 'shadow-emerald-500/20',
   },
   X: {
-    nome: 'Sem Classificação (X)',
-    descricao: 'Empenho sem classificação específica de tipo (não identifica EXC, DEA ou RAP).',
-    icon: HelpCircle,
-    color: 'from-slate-500 to-slate-600',
-    shadow: 'shadow-slate-500/20',
+    nome: 'Liquidado',
+    descricao: 'Empenho totalmente liquidado e pago (sem saldo a liquidar ou a pagar).',
+    icon: BadgeCheck,
+    color: 'from-emerald-500 to-teal-600',
+    shadow: 'shadow-emerald-500/20',
   },
 };
 
@@ -143,7 +149,7 @@ const Empenhos = () => {
   const exportData = useMemo(() =>
     filtrados.map(e => ({
       nr_empenho: e.nr_empenho,
-      tipo: e.tipo || '',
+      tipo: (e.tipo && TIPO_LABEL[e.tipo]) || e.tipo || '',
       ano: e.ano || '',
       saldo_empenhado: e.saldo_empenhado || 0,
       saldo_liquidado: e.saldo_liquidado || 0,
@@ -253,7 +259,7 @@ const Empenhos = () => {
                   <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br ${info.color} flex items-center justify-center shadow-sm ${info.shadow} group-hover:scale-110 transition-transform duration-300`}>
                     <Icon size={16} className="text-white" strokeWidth={2} />
                   </div>
-                  <Badge variant={TIPO_BADGE[tipo] || 'neutral'} size="sm">{tipo}</Badge>
+                  <Badge variant={TIPO_BADGE[tipo] || 'neutral'} size="sm">{TIPO_LABEL[tipo] || tipo}</Badge>
                 </div>
                 <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">{info.nome}</p>
                 <p className="text-sm sm:text-base font-bold text-slate-900 tracking-tight break-words">{formatCurrency(dados.total)}</p>
@@ -299,7 +305,7 @@ const Empenhos = () => {
                   : 'bg-white text-slate-500 border-slate-200 hover:border-emerald-300 hover:text-emerald-700'
               }`}
             >
-              {t}
+              {TIPO_LABEL[t] || t}
             </button>
           ))}
           {(filtroAno || filtroTipo) && (
@@ -356,7 +362,7 @@ const Empenhos = () => {
                       </td>
                       <td className="px-3 sm:px-6 py-3 sm:py-4">
                         {e.tipo ? (
-                          <Badge variant={TIPO_BADGE[e.tipo] || 'neutral'} size="sm">{e.tipo}</Badge>
+                          <Badge variant={TIPO_BADGE[e.tipo] || 'neutral'} size="sm">{TIPO_LABEL[e.tipo] || e.tipo}</Badge>
                         ) : <span className="text-xs text-slate-300">—</span>}
                       </td>
                       <td className="px-3 sm:px-6 py-3 sm:py-4">
