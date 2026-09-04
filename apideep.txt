@@ -1,2 +1,2 @@
-sk-15opvb5tkvrbszlkky8u6fhywhvty36r
+sk-1eix18easid0tfh5o59vyyo415y00jc1
 modelo: deepseek-v4-flash
