@@ -201,8 +201,8 @@ export const getContratosByMes = async (mes, bloco) => {
 
 // ════════════════ MEDIÇÕES (ARQUIVOS .xls) ═════════════════════════
 
-export const getMedicoesArquivos = async () => {
-    const response = await api.get('/medicoes/arquivos');
+export const getMedicoesArquivos = async (contrato) => {
+    const response = await api.get('/medicoes/arquivos', { params: contrato ? { contrato } : {} });
     return response.data;
 };
 

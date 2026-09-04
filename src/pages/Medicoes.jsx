@@ -60,19 +60,41 @@ const Medicoes = () => {
   const handleOpenMedicao = (m) => {
     const relPath = getMedicaoRelPath(m);
     if (!relPath) return;
-    setPreview({ medicao: m, url: '', loading: true, error: null });
+    setPreview({ medicao: m, url: '', loading: true, error: null, tipo: 'planilha', ext: relPath.split('.').pop() });
     apiService.getMedicoesPubToken(relPath)
       .then((data) => {
         if (!data?.token) throw new Error('Sem token');
         const pubUrl = API_URL + '/medicoes/pub/' + data.token;
-        const viewerUrl = 'https://view.officeapps.live.com/op/view.aspx?src=' + encodeURIComponent(pubUrl);
-        setPreview({ medicao: m, url: viewerUrl, loading: false, error: null });
+        const isPdf = relPath.toLowerCase().endsWith('.pdf');
+        const viewerUrl = isPdf ? pubUrl : 'https://view.officeapps.live.com/op/view.aspx?src=' + encodeURIComponent(pubUrl);
+        setPreview({ medicao: m, url: viewerUrl, loading: false, error: null, tipo: 'planilha', ext: relPath.split('.').pop() });
       })
-      .catch((e) => setPreview({ medicao: m, url: '', loading: false, error: e.message }));
+      .catch((e) => setPreview({ medicao: m, url: '', loading: false, error: e.message, tipo: 'planilha', ext: relPath.split('.').pop() }));
+  };
+
+  // Abre um arquivo específico (boletim PDF ou planilha) no visualizador
+  const handleOpenArquivo = (m, tipo) => {
+    const relPath = getArquivoRelPath(m, tipo);
+    if (!relPath) return;
+    setPreview({ medicao: m, url: '', loading: true, error: null, tipo, ext: relPath.split('.').pop() });
+    apiService.getMedicoesPubToken(relPath)
+      .then((data) => {
+        if (!data?.token) throw new Error('Sem token');
+        const pubUrl = API_URL + '/medicoes/pub/' + data.token;
+        const isPdf = relPath.toLowerCase().endsWith('.pdf');
+        const viewerUrl = isPdf ? pubUrl : 'https://view.officeapps.live.com/op/view.aspx?src=' + encodeURIComponent(pubUrl);
+        setPreview({ medicao: m, url: viewerUrl, loading: false, error: null, tipo, ext: relPath.split('.').pop() });
+      })
+      .catch((e) => setPreview({ medicao: m, url: '', loading: false, error: e.message, tipo, ext: relPath.split('.').pop() }));
   };
 
   const downloadMedicao = (m) => {
-    const relPath = getMedicaoRelPath(m);
+    downloadArquivo(m, 'planilha');
+  };
+
+  // Baixa um arquivo específico (planilha ou boletim PDF) da medição
+  const downloadArquivo = (m, tipo) => {
+    const relPath = getArquivoRelPath(m, tipo);
     if (!relPath) return;
     apiService.downloadMedicaoArquivo(relPath)
       .then((blob) => {
@@ -177,15 +199,21 @@ const Medicoes = () => {
     let active = true;
     setMedicoesLoading(true);
     Promise.all([
-      apiService.getMedicoesArquivos().catch(() => null),
+      apiService.getMedicoesArquivos(CONTRATO_ALVO.cd).catch(() => null),
       apiService.getContratoDetails(CONTRATO_ALVO.id).catch(() => null),
     ])
       .then(([meta, details]) => {
         if (!active) return;
         const metaList = meta?.medicoes || [];
         const arquivoMap = {};
+        const boletimMap = {};
+        const arquivoPdfMap = {};
         metaList.forEach(m => {
-          if (m?.nuMedicao && m?.arquivo) arquivoMap[String(m.nuMedicao)] = String(m.arquivo).replace(/\\/g, '/');
+          if (!m?.nuMedicao) return;
+          const nu = String(m.nuMedicao);
+          if (m?.arquivo) arquivoMap[nu] = String(m.arquivo).replace(/\\/g, '/');
+          if (m?.boletimArquivo) boletimMap[nu] = String(m.boletimArquivo).replace(/\\/g, '/');
+          if (m?.arquivoPdf) arquivoPdfMap[nu] = String(m.arquivoPdf).replace(/\\/g, '/');
         });
         const rows = (details && Array.isArray(details.medicoes)) ? details.medicoes : [];
         const mapped = rows.map(m => {
@@ -201,6 +229,8 @@ const Medicoes = () => {
             vl_ra: m.vl_ra,
             vl_total: m.vl_total ?? (parseFloat(m.vl_pi || 0) + parseFloat(m.vl_ra || 0)),
             arquivo: arquivoMap[nu] || null,
+            boletimArquivo: boletimMap[nu] || null,
+            arquivoPdf: arquivoPdfMap[nu] || null,
           };
         });
         setMedicoesList(mapped);
@@ -473,6 +503,17 @@ const detailMap = React.useMemo(() => {
   const getMedicaoRelPath = (m) => {
     if (!m?.arquivo) return null;
     return String(m.arquivo).replace(/\\/g, '/');
+  };
+
+  // Caminho relativo do arquivo por tipo: 'planilha' (padrão), 'boletim' (PDF juntado), 'pdf' (PDF legado)
+  const getArquivoRelPath = (m, tipo) => {
+    if (!m) return null;
+    let relPath = null;
+    if (tipo === 'boletim' && m?.boletimArquivo) relPath = m.boletimArquivo;
+    else if (tipo === 'pdf' && m?.arquivoPdf) relPath = m.arquivoPdf;
+    else if (!tipo || tipo === 'planilha') relPath = m?.arquivo;
+    if (!relPath) return null;
+    return String(relPath).replace(/\\/g, '/');
   };
 
   // Ordenação da lista de medições (por padrão, Nº desc)
@@ -921,6 +962,8 @@ const detailMap = React.useMemo(() => {
               ) : (
                 pagedMedicoes.map((m, idx) => {
                   const url = getMedicaoRelPath(m);
+                  const urlBoletim = getArquivoRelPath(m, 'boletim');
+                  const urlPdf = getArquivoRelPath(m, 'pdf');
                   return (
                     <tr
                       key={`${m.nuMedicao}-${idx}`}
@@ -951,24 +994,46 @@ const detailMap = React.useMemo(() => {
                         <span className="text-sm font-semibold text-amber-600">{m.vl_ra && parseFloat(m.vl_ra) > 0 ? formatCurrency(parseFloat(m.vl_ra)) : '—'}</span>
                       </td>
                       <td className="px-4 py-3 text-center">
-                        {url ? (
-                          <div className="inline-flex items-center gap-1">
-                            <button
-                              onClick={(e) => { e.stopPropagation(); handleOpenMedicao(m); }}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold text-emerald-700 hover:bg-emerald-50 border border-transparent hover:border-emerald-200 transition-all"
-                              title="Visualizar medição"
-                            >
-                              <FileSpreadsheet size={12} strokeWidth={2} />
-                              Ver
-                            </button>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); downloadMedicao(m); }}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold text-slate-500 hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all"
-                              title="Baixar arquivo"
-                            >
-                              <Download size={12} strokeWidth={2} />
-                              Baixar
-                            </button>
+                        {(url || urlBoletim || urlPdf) ? (
+                          <div className="inline-flex items-center gap-1.5">
+                            {url && (
+                              <span className="inline-flex items-center gap-1 rounded-lg border border-emerald-200/60 bg-emerald-50/40 text-emerald-700 overflow-hidden group/pl">
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleOpenMedicao(m); }}
+                                  className="inline-flex items-center gap-1 px-2 py-1.5 text-[10px] font-semibold hover:bg-emerald-100 transition-colors whitespace-nowrap"
+                                  title="Visualizar planilha da medição"
+                                >
+                                  <FileSpreadsheet size={12} strokeWidth={2} />
+                                  Planilha
+                                </button>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); downloadMedicao(m); }}
+                                  className="p-1.5 text-slate-400 hover:text-emerald-700 hover:bg-emerald-100 border-l border-emerald-200/40 transition-colors"
+                                  title="Baixar planilha"
+                                >
+                                  <Download size={12} strokeWidth={2} />
+                                </button>
+                              </span>
+                            )}
+                            {(urlBoletim || urlPdf) && (
+                              <span className="inline-flex items-center gap-1 rounded-lg border border-blue-200/60 bg-blue-50/40 text-blue-700 overflow-hidden">
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleOpenArquivo(m, urlBoletim ? 'boletim' : 'pdf'); }}
+                                  className="inline-flex items-center gap-1 px-2 py-1.5 text-[10px] font-semibold hover:bg-blue-100 transition-colors whitespace-nowrap"
+                                  title="Visualizar boletim da medição (PDF)"
+                                >
+                                  <FileText size={12} strokeWidth={2} />
+                                  Boletim
+                                </button>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); downloadArquivo(m, urlBoletim ? 'boletim' : 'pdf'); }}
+                                  className="p-1.5 text-slate-400 hover:text-blue-700 hover:bg-blue-100 border-l border-blue-200/40 transition-colors"
+                                  title="Baixar boletim (PDF)"
+                                >
+                                  <Download size={12} strokeWidth={2} />
+                                </button>
+                              </span>
+                            )}
                           </div>
                         ) : <span className="text-[11px] text-slate-300">—</span>}
                       </td>
@@ -1002,15 +1067,21 @@ const detailMap = React.useMemo(() => {
     </div>
 
       {/* ─── Prévia da medição (tela cheia) ─────────── */}
-      {preview && (
+      {preview && (() => {
+        const isBoletim = preview.tipo === 'boletim' || preview.tipo === 'pdf';
+        const ext = preview.ext ? ('.' + preview.ext).toLowerCase() : (isBoletim ? '.pdf' : '.xls');
+        const isPdf = ext === '.pdf';
+        return (
         <div className="fixed inset-0 z-[99999] flex flex-col bg-white overflow-hidden">
           <div className="flex items-center gap-2 px-4 sm:px-6 py-3 border-b border-gray-200 shrink-0">
             <div className="flex items-center gap-2 flex-1 min-w-0">
-              <FileSpreadsheet size={18} className="text-emerald-600 shrink-0" />
+              {isPdf
+                ? <FileText size={18} className="text-blue-600 shrink-0" />
+                : <FileSpreadsheet size={18} className="text-emerald-600 shrink-0" />}
               <h2 className="font-bold text-gray-800 truncate text-sm min-w-0">
-                {preview.medicao?.deMedicao || `Medição ${preview.medicao?.nuMedicao || ''}`}
+                {isBoletim ? 'Boletim — ' : ''}{preview.medicao?.deMedicao || `Medição ${preview.medicao?.nuMedicao || ''}`}
               </h2>
-              <span className="text-xs text-slate-400 uppercase shrink-0">.xls</span>
+              <span className="text-xs text-slate-400 uppercase shrink-0">{ext}</span>
             </div>
             <button onClick={closePreview} className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors shrink-0 ml-auto" title="Fechar (Esc)">
               <X size={18} />
@@ -1031,12 +1102,13 @@ const detailMap = React.useMemo(() => {
               <iframe
                 src={preview.url}
                 className="w-full h-full border-0"
-                title={preview.medicao?.deMedicao || 'Medição'}
+                title={isBoletim ? 'Boletim' : (preview.medicao?.deMedicao || 'Medição')}
               />
             )}
           </div>
         </div>
-      )}
+        );
+      })()}
     </>
   );
 };
