@@ -206,6 +206,12 @@ const Gestores = () => {
     return nomes.size;
   }, [gruposPorPortaria]);
 
+  // Pessoas da última portaria (vigente/atual)
+  const totalPessoasAtual = useMemo(() => {
+    const atual = gruposPorPortaria.find(g => g.isAtual);
+    return atual?.pessoas?.length || 0;
+  }, [gruposPorPortaria]);
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center gap-3">
@@ -215,7 +221,19 @@ const Gestores = () => {
           </div>
         </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Card padding="p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
+              <UserCheck size={20} className="text-emerald-600" />
+            </div>
+            <div>
+              <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Gestores / Fiscais Ativos</p>
+              <p className="text-xl font-bold text-slate-800">{loading ? '—' : totalPessoasAtual}</p>
+            </div>
+          </div>
+        </Card>
+
         <Card padding="p-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
