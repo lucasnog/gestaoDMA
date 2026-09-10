@@ -995,7 +995,7 @@ const detailMap = React.useMemo(() => {
                       </td>
                       <td className="px-4 py-3 text-center">
                         {(url || urlBoletim || urlPdf) ? (
-                          <div className="inline-flex items-center gap-1.5">
+                          <div className="flex flex-col items-start gap-1">
                             {url && (
                               <span className="inline-flex items-center gap-1 rounded-lg border border-emerald-200/60 bg-emerald-50/40 text-emerald-700 overflow-hidden group/pl">
                                 <button
