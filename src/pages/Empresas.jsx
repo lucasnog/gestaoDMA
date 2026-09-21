@@ -4,7 +4,10 @@ import {
   FileText,
   Ruler,
   DollarSign,
-  Download
+  Download,
+  Eye,
+  X,
+  Loader2
 } from 'lucide-react';
 import { formatCurrency } from '../utils/formatters';
 import Card from '../components/ui/Card';
@@ -12,7 +15,15 @@ import Badge from '../components/ui/Badge';
 import Skeleton from '../components/ui/Skeleton';
 import Pagination from '../components/ui/Pagination';
 import ExportDialog from '../components/ui/ExportDialog';
-import { getControlePagamentos, getControlePagamentoResumo } from '../services/api.service';
+import {
+  getControlePagamentos,
+  getControlePagamentoResumo,
+  getDocumentosContrato,
+  getDocumentoPubToken,
+  downloadDocumentoContrato,
+} from '../services/api.service';
+import { API_URL } from '../config/constants';
+import { useAuthStore } from '../stores/auth.store';
 
 const EMPRESA_BADGE = {
   Dynatest: 'success',
@@ -22,7 +33,15 @@ const EMPRESA_BADGE = {
 
 const ORDEM_EMPRESAS = ['Dynatest', 'STE', 'HS'];
 
+// Empresa do controle de pagamentos -> rótulo usado nas notas fiscais
+const EMPRESA_NOTA = {
+  Dynatest: 'DYNATEST',
+  STE: 'STE',
+  HS: 'HUMBERTO SANTANA',
+};
+
 const Empresas = () => {
+  const { isAdmin } = useAuthStore();
   const [pagamentos, setPagamentos] = useState([]);
   const [resumoPag, setResumoPag] = useState(null);
   const [pagLoading, setPagLoading] = useState(true);
@@ -30,6 +49,90 @@ const Empresas = () => {
   const [tablePage, setTablePage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [exportOpen, setExportOpen] = useState(false);
+
+  // ─── Notas fiscais / atestes do contrato 61/2023 ─────────────────
+  const [docsNotas, setDocsNotas] = useState([]);
+  const [docsAtestes, setDocsAtestes] = useState([]);
+  const [previewDoc, setPreviewDoc] = useState(null); // { doc, url, loading, error }
+
+  useEffect(() => {
+    let ativo = true;
+    getDocumentosContrato()
+      .then((data) => {
+        if (!ativo) return;
+        const docs = data?.documentos || [];
+        setDocsNotas(docs.filter((d) => d.grupo === 'notas-fiscais'));
+        setDocsAtestes(docs.filter((d) => d.grupo === 'atestes-nf'));
+      })
+      .catch(() => {
+        if (ativo) { setDocsNotas([]); setDocsAtestes([]); }
+      });
+    return () => { ativo = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!previewDoc) return;
+    const handler = (e) => { if (e.key === 'Escape') setPreviewDoc(null); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [previewDoc]);
+
+  // Mapa `${medicao}|${empresaLabel}` -> documento da nota fiscal
+  const notasMap = useMemo(() => {
+    const map = new Map();
+    for (const d of docsNotas) {
+      const empresa = (d.empresa || '').toUpperCase();
+      if (d.medicao) map.set(`${d.medicao}|${empresa}`, d);
+    }
+    return map;
+  }, [docsNotas]);
+
+  const getNota = (p) => {
+    const label = EMPRESA_NOTA[p.empresa];
+    if (!label) return null;
+    return notasMap.get(`${p.nr_medicao}|${label}`) || null;
+  };
+
+  // Mapa medicao -> ateste de nota fiscal
+  const atestesMap = useMemo(() => {
+    const map = new Map();
+    for (const d of docsAtestes) {
+      if (d.medicao) map.set(String(d.medicao), d);
+    }
+    return map;
+  }, [docsAtestes]);
+
+  const getDocRelPath = (d) => (d?.arquivo ? String(d.arquivo).replace(/\\/g, '/') : null);
+
+  const handleVerDoc = (d) => {
+    const relPath = getDocRelPath(d);
+    if (!relPath) return;
+    setPreviewDoc({ doc: d, url: '', loading: true, error: null });
+    getDocumentoPubToken(relPath)
+      .then((data) => {
+        if (!data?.token) throw new Error('Sem token');
+        const pubUrl = API_URL + '/documentos-contrato/pub/' + data.token;
+        setPreviewDoc({ doc: d, url: pubUrl, loading: false, error: null });
+      })
+      .catch((e) => setPreviewDoc({ doc: d, url: '', loading: false, error: e.message }));
+  };
+
+  const handleDownloadDoc = (d) => {
+    const relPath = getDocRelPath(d);
+    if (!relPath) return;
+    downloadDocumentoContrato(relPath)
+      .then((blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = d.nome || relPath.split('/').pop();
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      })
+      .catch((e) => alert('Erro: ' + e.message));
+  };
 
   useEffect(() => {
     let ativo = true;
@@ -71,7 +174,7 @@ const Empresas = () => {
       map[chave].push(p);
     });
     return Object.keys(map)
-      .sort((a, b) => parseInt(a) - parseInt(b))
+      .sort((a, b) => parseInt(b) - parseInt(a))
       .map(nr => {
         const linhas = map[nr].sort((a, b) => {
           const ia = ORDEM_EMPRESAS.indexOf(a.empresa);
@@ -103,7 +206,8 @@ const Empresas = () => {
   const totais = useMemo(() => {
     const totalPago = filtrados.reduce((s, p) => s + (p.vl_pago || 0), 0);
     const acumulado = filtrados.reduce((m, p) => Math.max(m, p.vl_acumulado || 0), 0);
-    const saldo = grupos.length ? grupos[grupos.length - 1].saldo : 0;
+    // saldo atual = menor saldo do conjunto (independe da ordem de exibição)
+    const saldo = grupos.length ? Math.min(...grupos.map(g => g.saldo || 0)) : 0;
     return { totalPago, acumulado, saldo, totalContrato: acumulado + saldo };
   }, [filtrados, grupos]);
 
@@ -246,6 +350,29 @@ const Empresas = () => {
                             <span className="text-[11px] font-bold text-slate-800">
                               Valor Total: {formatCurrency(g.totalPago)}
                             </span>
+                            {isAdmin() && (() => {
+                              const ateste = atestesMap.get(String(g.nr));
+                              if (!ateste) return null;
+                              return (
+                                <span className="inline-flex items-center gap-1">
+                                  <span className="text-[11px] text-slate-500">Ateste:</span>
+                                  <button
+                                    onClick={() => handleVerDoc(ateste)}
+                                    className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-emerald-700 hover:bg-emerald-50 border border-transparent hover:border-emerald-200 transition-all"
+                                    title="Visualizar ateste"
+                                  >
+                                    <Eye size={13} strokeWidth={2} />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDownloadDoc(ateste)}
+                                    className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-slate-500 hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all"
+                                    title="Baixar ateste"
+                                  >
+                                    <Download size={13} strokeWidth={2} />
+                                  </button>
+                                </span>
+                              );
+                            })()}
                           </div>
                         </td>
                       </tr>
@@ -271,7 +398,33 @@ const Empresas = () => {
                               </Badge>
                             </td>
                             <td className="px-4 py-2"></td>
-                            <td className="px-4 py-2 font-mono text-xs text-slate-500">{p.nr_nf || '—'}</td>
+                            <td className="px-4 py-2">
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono text-xs text-slate-500">{p.nr_nf || '—'}</span>
+                                {isAdmin() && (() => {
+                                  const nota = getNota(p);
+                                  if (!nota) return null;
+                                  return (
+                                    <div className="inline-flex items-center gap-0.5 shrink-0">
+                                      <button
+                                        onClick={() => handleVerDoc(nota)}
+                                        className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-emerald-700 hover:bg-emerald-50 border border-transparent hover:border-emerald-200 transition-all"
+                                        title="Visualizar nota fiscal"
+                                      >
+                                        <Eye size={13} strokeWidth={2} />
+                                      </button>
+                                      <button
+                                        onClick={() => handleDownloadDoc(nota)}
+                                        className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-slate-500 hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all"
+                                        title="Baixar nota fiscal"
+                                      >
+                                        <Download size={13} strokeWidth={2} />
+                                      </button>
+                                    </div>
+                                  );
+                                })()}
+                              </div>
+                            </td>
                             <td className="px-4 py-2 text-right font-medium text-slate-800">{formatCurrency(p.vl_pago)}</td>
                             <td className="px-4 py-2 text-right">
                               <span className="text-xs font-semibold text-slate-500">{perc.toFixed(1)}%</span>
@@ -301,6 +454,54 @@ const Empresas = () => {
         filename="controle-pagamentos"
         title="Exportar Controle de Pagamentos"
       />
+
+      {/* ─── Prévia da nota fiscal (tela cheia) ─────────── */}
+      {previewDoc && (
+        <div className="fixed inset-0 z-[99999] flex flex-col bg-white overflow-hidden">
+          <div className="flex items-center gap-2 px-4 sm:px-6 py-3 border-b border-gray-200 shrink-0">
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <FileText size={18} className="text-red-500 shrink-0" />
+              <h2 className="font-bold text-gray-800 truncate text-sm min-w-0">
+                {previewDoc.doc?.titulo || previewDoc.doc?.nome || 'Nota Fiscal'}
+              </h2>
+              <span className="text-xs text-slate-400 uppercase shrink-0">.pdf</span>
+            </div>
+            <button
+              onClick={() => handleDownloadDoc(previewDoc.doc)}
+              className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors shrink-0"
+              title="Baixar"
+            >
+              <Download size={18} />
+            </button>
+            <button
+              onClick={() => setPreviewDoc(null)}
+              className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors shrink-0"
+              title="Fechar (Esc)"
+            >
+              <X size={18} />
+            </button>
+          </div>
+          <div className="flex-1 bg-[#f0f0f0] relative min-h-0">
+            {previewDoc.loading && (
+              <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-10">
+                <Loader2 size={28} className="animate-spin text-emerald-600" />
+              </div>
+            )}
+            {previewDoc.error && (
+              <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-10">
+                <p className="text-red-500 text-sm">Erro: {previewDoc.error}</p>
+              </div>
+            )}
+            {!previewDoc.loading && !previewDoc.error && (
+              <iframe
+                src={previewDoc.url}
+                className="w-full h-full border-0"
+                title={previewDoc.doc?.titulo || 'Nota Fiscal'}
+              />
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
