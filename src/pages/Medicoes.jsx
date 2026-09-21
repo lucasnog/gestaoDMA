@@ -920,8 +920,8 @@ const detailMap = React.useMemo(() => {
                 <th onClick={() => handleSort('nuMedicao')} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none w-16">
                   Nº{sortConfig.key === 'nuMedicao' ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
                 </th>
-                <th onClick={() => handleSort('dtMedicao')} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none">
-                  Data Medição{sortConfig.key === 'dtMedicao' ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
+                <th onClick={() => handleSort('dtMedicao')} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none whitespace-nowrap">
+                  Data do Lançamento<br /> da Medição (SMO){sortConfig.key === 'dtMedicao' ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
                 </th>
                 <th onClick={() => handleSort('dtInimedicao')} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none">
                   Período{sortConfig.key === 'dtInimedicao' ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
