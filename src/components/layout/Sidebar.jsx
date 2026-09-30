@@ -9,6 +9,7 @@ import {
   FilePlus,
   X,
   Shield,
+  ShieldAlert,
   Info,
   Clock,
   BadgeCheck,
@@ -16,6 +17,8 @@ import {
   DollarSign,
 } from "lucide-react";
 import { useAuthStore } from "../../stores/auth.store";
+import { useAtividadeStore } from "../../stores/atividade.store";
+import LogoGestaoDma from "../ui/LogoGestaoDma";
 
 const Sidebar = ({ contractsAlertCount = 0, isOpen, onClose }) => {
   const location = useLocation();
@@ -87,10 +90,18 @@ const Sidebar = ({ contractsAlertCount = 0, isOpen, onClose }) => {
     { path: "/sobre", label: "Sobre", icon: Info },
   ];
 
-  const adminMenu =
-    isAdmin() || isOwner
+  // Auditoria de atividade: liberada pela allowlist AUDIT_DASHBOARD_EMAILS
+  // (independente do role). O backend confirma via /atividade/acesso.
+  const podeAuditar = useAtividadeStore((s) => s.permitido);
+
+  const adminMenu = [
+    ...(isAdmin() || isOwner
       ? [{ path: "/admin", label: "Administração", icon: Shield }]
-      : [];
+      : []),
+    ...(podeAuditar
+      ? [{ path: "/atividade", label: "Auditoria de Atividade", icon: ShieldAlert }]
+      : []),
+  ];
 
   const isActive = (path) => {
     if (path === "/") return currentPath === "/";
@@ -105,16 +116,9 @@ const Sidebar = ({ contractsAlertCount = 0, isOpen, onClose }) => {
   const sidebarContent = (
     <div className="h-full flex flex-col bg-emerald-950">
       {/* Logo Area */}
-      <div className="pt-6 pb-3 border-b border-emerald-900/20 flex flex-col items-center">
-        <img
-          src="/Logo de gestão financeira..png"
-          alt="Logo Gestão DMA"
-          className="w-[13.5rem] h-auto object-contain"
-          style={{
-            filter: 'drop-shadow(0 0 1.5px #ffffff) drop-shadow(0 0 1.5px #ffffff) drop-shadow(0 0 1.5px #ffffff)',
-          }}
-        />
-        <p className="relative z-10 text-[11px] font-bold text-emerald-400/90 uppercase tracking-[0.35em] -mt-11">
+      <div className="pt-6 pb-4 border-b border-emerald-900/20 flex flex-col items-center">
+        <LogoGestaoDma className="w-[12.5rem] h-auto text-white" />
+        <p className="mt-1 text-[11px] font-bold text-emerald-400/90 uppercase tracking-[0.35em]">
           Analytics
         </p>
         {/* Close button - mobile only */}

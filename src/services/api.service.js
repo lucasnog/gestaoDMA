@@ -3,7 +3,10 @@ import { API_URL } from '../config/constants';
 import { auth } from './firebase';
 
 const api = axios.create({
-    baseURL: API_URL
+    baseURL: API_URL,
+    // Evita que uma requisição trave a UI indefinidamente (ex.: backend
+    // sem resposta no meio do login, que dava a sensação de "tela travada").
+    timeout: 120000
 });
 
 // ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
@@ -15,11 +18,15 @@ const api = axios.create({
 // ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
 
 let _authToken = null;
+// "Geração" do token: incrementa a cada troca. Usada para descartar 401 de
+// requisições que saíram com um token antigo (corrida comum durante o login).
+let _authGen = 0;
 
 /**
  * Define o token de autentica├º├úo para as chamadas da API
  */
 export function setAuthToken(token) {
+    if (token !== _authToken) _authGen++;
     _authToken = token;
     if (token) {
         api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
@@ -32,9 +39,64 @@ export function setAuthToken(token) {
  * Remove o token de autentica├º├úo
  */
 export function clearAuthToken() {
+    if (_authToken !== null) _authGen++;
     _authToken = null;
     delete api.defaults.headers.common['Authorization'];
 }
+
+/**
+ * Decodifica o payload de um JWT (base64url) sem validar assinatura.
+ */
+function decodeJwtPayload(token) {
+    const part = token?.split('.')?.[1];
+    if (!part) return null;
+    const b64 = part.replace(/-/g, '+').replace(/_/g, '/');
+    const pad = b64.length % 4 ? '='.repeat(4 - (b64.length % 4)) : '';
+    try {
+        return JSON.parse(atob(b64 + pad));
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Verifica localmente (sem rede) se o JWT está expirado ou perto de vencer.
+ */
+export function isTokenExpiring(token, skewSeconds = 300) {
+    if (!token) return true;
+    const payload = decodeJwtPayload(token);
+    if (!payload?.exp) return false;
+    return payload.exp * 1000 - Date.now() < skewSeconds * 1000;
+}
+
+/**
+ * Renova o JWT interno trocando o ID token atual do Firebase por um novo.
+ *
+ * Necessário porque o backend valida a sessão via Firebase/cookie, mas as
+ * chamadas seguintes continuariam usando um JWT interno vencido no header
+ * Authorization — o que gerava 401 em todas as rotas após restaurar a sessão.
+ */
+export async function refreshBackendToken() {
+    try {
+        const user = auth.currentUser || await aguardarFirebaseAuth();
+        if (!user) return null;
+        const idToken = await user.getIdToken(true);
+        const response = await api.post('/auth/firebase', { idToken });
+        if (response.data?.token) {
+            setAuthToken(response.data.token);
+            return response.data;
+        }
+    } catch (err) {
+        console.warn('[API] Nao foi possivel renovar o token do backend:', err.message);
+    }
+    return null;
+}
+
+// Marca a geração de auth no momento do envio de cada requisição.
+api.interceptors.request.use((config) => {
+    config.__authGen = _authGen;
+    return config;
+});
 
 /**
  * Login contra o backend local (usu├írio/senha do .env)
@@ -115,6 +177,19 @@ api.interceptors.response.use(
     (response) => response,
     (error) => {
         if (error.response?.status === 401) {
+            const failedGen = error.config?.__authGen;
+            const sentAuth = error.config?.headers?.Authorization;
+            const currentAuth = _authToken ? `Bearer ${_authToken}` : undefined;
+            // 401 de requisição que saiu com um token que já não é o atual:
+            // significa que a sessão nova já foi estabelecida (ex.: login).
+            // Não pode derrubar a sessão que acabou de ser criada.
+            const isStale =
+                (failedGen !== undefined && failedGen !== _authGen) ||
+                (currentAuth && sentAuth && sentAuth !== currentAuth);
+            if (isStale) {
+                console.warn('[API] 401 ignorado (token antigo)');
+                return Promise.reject(error);
+            }
             console.warn('[API] Token expirado');
             clearAuthToken();
             // Evita loop se ja estiver na pagina de login
@@ -631,6 +706,65 @@ export const downloadConferenciaFundoProtege = async (oldFile, newFile, fileName
   a.click();
   document.body.removeChild(a);
   window.URL.revokeObjectURL(url);
+};
+
+// ─── Auditoria de atividade (tracing de uso) ─────────────────────
+// Todas restritas no backend à allowlist AUDIT_DASHBOARD_EMAILS
+// (hoje: englucasnog@gmail.com e lucas.nlopes04@gmail.com).
+// Fora da allowlist o backend responde 404 (a rota não existe para o usuário).
+
+/** O usuário logado tem acesso ao dashboard de atividade? */
+export const verificarAcessoAtividade = async () => {
+    try {
+        await api.get('/atividade/acesso');
+        return true;
+    } catch {
+        return false;
+    }
+};
+
+export const getAtividadeEventos = async (params = {}) => {
+    const response = await api.get('/atividade/eventos', { params });
+    return response.data;
+};
+
+export const getAtividadeResumo = async (params = {}) => {
+    const response = await api.get('/atividade/resumo', { params });
+    return response.data;
+};
+
+/** Trajetória de navegação de um usuário (páginas + buscas, por sessão). */
+export const getAtividadeJornada = async (params = {}) => {
+    const response = await api.get('/atividade/jornada', { params });
+    return response.data;
+};
+
+export const getAtividadeUsuarios = async (params = {}) => {
+    const response = await api.get('/atividade/usuarios', { params });
+    return response.data;
+};
+
+/**
+ * Avisa a auditoria que o usuário baixou/exportou um arquivo montado NO
+ * NAVEGADOR (planilhas ExcelJS, CSV do ExportDialog). Só o nome e o tamanho
+ * são enviados — nenhum conteúdo.
+ */
+export const registrarDownload = (arquivo, bytes = null) => {
+    if (!arquivo) return Promise.resolve();
+    const pagina = typeof window !== 'undefined' ? window.location.pathname : '/';
+    return api
+        .post('/atividade/download', {
+            arquivo: String(arquivo),
+            bytes: Number.isFinite(bytes) && bytes > 0 ? Math.round(bytes) : null,
+            pagina,
+        })
+        .catch(() => {});
+};
+
+/** Última atividade de cada usuário. */
+export const getUltimaAtividade = async () => {
+    const response = await api.get('/atividade/ultima-atividade');
+    return response.data;
 };
 
 export default api;

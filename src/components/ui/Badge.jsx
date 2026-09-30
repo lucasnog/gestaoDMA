@@ -6,6 +6,7 @@ const variants = {
   danger: 'bg-rose-50 text-rose-700 border-rose-200/60',
   info: 'bg-sky-50 text-sky-700 border-sky-200/60',
   neutral: 'bg-slate-100 text-slate-600 border-slate-200/60',
+  purple: 'bg-purple-50 text-purple-700 border-purple-200/60',
 };
 
 const sizes = {
@@ -30,6 +31,8 @@ const Badge = ({ children, variant = 'info', size = 'md', className = '', dot = 
               ? 'bg-rose-500'
               : variant === 'info'
               ? 'bg-sky-500'
+              : variant === 'purple'
+              ? 'bg-purple-500'
               : 'bg-slate-400'
           }`}
         />

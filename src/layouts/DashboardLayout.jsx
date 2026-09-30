@@ -4,6 +4,9 @@ import { AlertTriangle, RefreshCw } from 'lucide-react';
 import Sidebar from '../components/layout/Sidebar';
 import Header from '../components/layout/Header';
 import { useDashboard } from '../hooks/useDashboard';
+import { useActivityTracking } from '../hooks/useActivityTracking';
+import { useAuthStore } from '../stores/auth.store';
+import { useAtividadeStore } from '../stores/atividade.store';
 import { getDatabaseUpdatedAt } from '../services/api.service';
 
 const DashboardContext = createContext(null);
@@ -13,11 +16,22 @@ const DashboardLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [dbUpdatedAt, setDbUpdatedAt] = useState(null);
 
+  const userEmail = useAuthStore((s) => s.user?.email);
+  const verificarAcessoAtividade = useAtividadeStore((s) => s.verificar);
+
+  // Beacon de navegação (trocas de rota do SPA)
+  useActivityTracking();
+
   useEffect(() => {
     getDatabaseUpdatedAt()
       .then(d => setDbUpdatedAt(d))
       .catch(() => {});
   }, []);
+
+  // Checa (uma vez por e-mail) se o usuário pode ver o dashboard de auditoria
+  useEffect(() => {
+    verificarAcessoAtividade(userEmail);
+  }, [userEmail, verificarAcessoAtividade]);
 
   const { contratos, stats, loading, search, setSearch, contratoAlvo } = useDashboard();
 

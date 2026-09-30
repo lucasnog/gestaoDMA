@@ -16,11 +16,33 @@ import About from './pages/About';
 import Login from './pages/Login';
 import PendingApproval from './pages/PendingApproval';
 import Admin from './pages/Admin';
+import Atividade from './pages/Atividade';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import Toast from './components/ui/Toast';
 import { RouteErrorBoundary } from './components/ErrorBoundary';
 import { useAuthStore } from './stores/auth.store';
+import { useAtividadeStore } from './stores/atividade.store';
 import { setAuthToken } from './services/api.service';
+import { Loader2 } from 'lucide-react';
+
+// Rota de auditoria de atividade. A allowlist (AUDIT_DASHBOARD_EMAILS) vive
+// só no backend: quem não pode recebe 404 da API. Aqui isso vira um redirect
+// silencioso para o dashboard — o usuário comum nunca vê "acesso negado".
+function AtividadeRoute({ children }) {
+  const verificado = useAtividadeStore((s) => s.verificado);
+  const permitido = useAtividadeStore((s) => s.permitido);
+
+  if (!verificado) {
+    return (
+      <div className="h-[60vh] flex flex-col items-center justify-center gap-3">
+        <Loader2 size={26} className="animate-spin text-emerald-600" />
+        <p className="text-xs text-slate-400">Verificando permissão...</p>
+      </div>
+    );
+  }
+  if (!permitido) return <Navigate to="/" replace />;
+  return children;
+}
 
 const router = createBrowserRouter([
   // Rotas publicas
@@ -47,6 +69,7 @@ const router = createBrowserRouter([
       { path: "empenhos", element: <Empenhos /> },
       { path: "gestores", element: <Gestores /> },
       { path: "admin", element: <Admin /> },
+      { path: "atividade", element: <AtividadeRoute><Atividade /></AtividadeRoute>, errorElement: <RouteErrorBoundary /> },
       { path: "sobre", element: <About /> },
     ],
   },

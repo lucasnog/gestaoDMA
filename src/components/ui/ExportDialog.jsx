@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { X, ChevronUp, ChevronDown, Download, FileSpreadsheet } from 'lucide-react';
+import { registrarDownload } from '../../services/api.service';
 
 /**
  * Dialog de exportação de dados para CSV/XLSX.
@@ -16,6 +17,13 @@ import { X, ChevronUp, ChevronDown, Download, FileSpreadsheet } from 'lucide-rea
 const ExportDialog = ({ open, onClose, data, columns, formatters = {}, filename = 'export', title = 'Exportar Dados', onExtraDownload }) => {
   const [selectedColumns, setSelectedColumns] = useState(columns.map(c => c.key));
   const [orderedColumns, setOrderedColumns] = useState(columns.map(c => c.key));
+
+  // Sincroniza as colunas quando as props mudam (troca de aba/filtro),
+  // evitando manter colunas de um contexto anterior.
+  useEffect(() => {
+    setSelectedColumns(columns.map(c => c.key));
+    setOrderedColumns(columns.map(c => c.key));
+  }, [columns]);
 
   const visibleColumns = useMemo(
     () => orderedColumns.filter(k => selectedColumns.includes(k)),
@@ -69,6 +77,8 @@ const ExportDialog = ({ open, onClose, data, columns, formatters = {}, filename 
     a.download = `${filename}.csv`;
     a.click();
     URL.revokeObjectURL(url);
+    // Auditoria de atividade: registra o arquivo exportado no navegador
+    registrarDownload(`${filename}.csv`, blob.size);
   };
 
   const exportXLSX = async () => {
@@ -88,26 +98,26 @@ const ExportDialog = ({ open, onClose, data, columns, formatters = {}, filename 
       })
     );
 
-    // Cores Goinfra (formato ARGB com alpha FF)
-    const GREEN_DARK = 'FF0D6B2E';
-    const GREEN_LIGHT = 'FFE8F5E9';
+    // Paleta azul Gestão DMA (formato ARGB com alpha FF)
+    const BLUE_DARK = 'FF1D4ED8';
+    const BLUE_LIGHT = 'FFEFF6FF';
     const WHITE = 'FFFFFFFF';
     const GRAY = 'FFD0D0D0';
     const TEXT_DARK = 'FF333333';
-    const GREEN_MEDIUM = 'FF1B8C3E';
+    const BLUE_MEDIUM = 'FF2563EB';
 
     // ── Cabeçalho ──────────────────────────────────────────────
     const headerRow = ws.addRow(headers);
     headerRow.height = 32;
     headerRow.eachCell((cell) => {
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: GREEN_DARK } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BLUE_DARK } };
       cell.font = { color: { argb: WHITE }, bold: true, size: 11, name: 'Calibri' };
       cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
       cell.border = {
-        top: { style: 'thin', color: { argb: GREEN_DARK } },
-        bottom: { style: 'medium', color: { argb: GREEN_MEDIUM } },
-        left: { style: 'thin', color: { argb: GREEN_DARK } },
-        right: { style: 'thin', color: { argb: GREEN_DARK } },
+        top: { style: 'thin', color: { argb: BLUE_DARK } },
+        bottom: { style: 'medium', color: { argb: BLUE_MEDIUM } },
+        left: { style: 'thin', color: { argb: BLUE_DARK } },
+        right: { style: 'thin', color: { argb: BLUE_DARK } },
       };
     });
 
@@ -117,7 +127,7 @@ const ExportDialog = ({ open, onClose, data, columns, formatters = {}, filename 
       row.height = 22;
       const isEven = idx % 2 === 0;
       row.eachCell((cell) => {
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isEven ? WHITE : GREEN_LIGHT } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isEven ? WHITE : BLUE_LIGHT } };
         cell.font = { color: { argb: TEXT_DARK }, size: 10, name: 'Calibri' };
         cell.alignment = { horizontal: 'left', vertical: 'middle' };
         cell.border = {
@@ -145,12 +155,14 @@ const ExportDialog = ({ open, onClose, data, columns, formatters = {}, filename 
     a.download = `${filename}.xlsx`;
     a.click();
     URL.revokeObjectURL(url);
+    // Auditoria de atividade: registra o arquivo exportado no navegador
+    registrarDownload(`${filename}.xlsx`, blob.size);
   };
 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/30 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-2xl border border-emerald-100/60 w-full max-w-lg mx-4 max-h-[85vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-emerald-100/30 shrink-0">

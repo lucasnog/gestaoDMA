@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { loginWithGoogle, logoutFirebase, isInAppBrowser, getAllUsers, setUserTipo, setUserStatus, setUserPermissoes } from '../services/firebase';
-import { setAuthToken, clearAuthToken, loginFirebaseBackend, verifyToken, logoutBackend } from '../services/api.service';
+import { setAuthToken, clearAuthToken, loginFirebaseBackend, verifyToken, logoutBackend, refreshBackendToken, isTokenExpiring } from '../services/api.service';
 
 // Intervalo de verificação de sessão (15 minutos)
 const SESSION_VERIFY_INTERVAL = 15 * 60 * 1000;
@@ -46,10 +46,12 @@ export const useAuthStore = create(
                 if (_hydrationVerifyPromise) {
                     const result = await _hydrationVerifyPromise;
                     return result;
-                }
-                try {
-                    const result = await verifyToken();
-                    if (result.valid) {
+                }                    try {
+                        const result = await verifyToken();
+                        if (result.valid) {
+                            // O backend pode ter validado via Firebase/cookie; garante
+                            // que o Bearer interno não esteja vencido antes de seguir.
+                            await get().renewTokenSeNecessario();
                         const userData = {
                             uid: result.uid,
                             email: result.email,
@@ -219,10 +221,18 @@ export const useAuthStore = create(
              */
             verifySession: async () => {
                 const state = get();
-                if (!state.token || !state.isAuthenticated) return;
+                if (!state.token) return;
 
                 try {
                     const result = await verifyToken();
+
+                    if (result.valid) {
+                        await get().renewTokenSeNecessario();
+                        // Estado consistente: se havia token mas o flag se perdeu
+                        // (localStorage inconsistente), restaura a autenticação
+                        // para não travar no ProtectedRoute ("Restaurando sessão...").
+                        if (!get().isAuthenticated) set({ isAuthenticated: true });
+                    }
 
                     if (!result.valid) {
                         console.warn('[Auth] ⚠️ Sessão expirou ou token inválido — fazendo logout');
@@ -267,6 +277,25 @@ export const useAuthStore = create(
              * Inicia verificação periódica da sessão (a cada 15 min)
              * Deve ser chamada após o login bem-sucedido
              */
+            /**
+             * Renova o JWT interno quando ele estiver vencido ou perto de vencer.
+             *
+             * Corrige o caso em que a sessão é restaurada via Firebase, mas o
+             * Bearer interno antigo continuava sendo enviado — gerando 401 em
+             * todas as chamadas e derrubando o usuário de volta ao login.
+             */
+            renewTokenSeNecessario: async () => {
+                const { token } = get();
+                if (!isTokenExpiring(token)) return;
+                const data = await refreshBackendToken();
+                if (!data?.token) return;
+                set((state) => ({
+                    token: data.token,
+                    user: data.user ? { ...state.user, ...data.user } : state.user,
+                }));
+                console.log('[Auth] Token do backend renovado');
+            },
+
             startSessionVerification: () => {
                 if (_verifyInterval) {
                     clearInterval(_verifyInterval);
@@ -304,6 +333,9 @@ export const useAuthStore = create(
                 return (state, error) => {
                     if (state?.token) {
                         setAuthToken(state.token);
+                        // Um token persistido implica sessão autenticada; corrige o
+                        // flag caso o localStorage tenha ficado inconsistente.
+                        if (!state.isAuthenticated) _set({ isAuthenticated: true });
                         console.log('[Auth] Token restaurado — verificando...');
                         const store = _get();
                         _hydrationVerifyPromise = store.verifySession?.() || Promise.resolve();
