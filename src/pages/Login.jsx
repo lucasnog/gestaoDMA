@@ -46,7 +46,13 @@ const Login = () => {
         <div className="bg-white/80 backdrop-blur-sm rounded-xl sm:rounded-2xl shadow-2xl border border-emerald-100/50 overflow-hidden w-full max-w-md">
           {/* Header */}
           <div className="px-5 sm:px-8 pt-2 sm:pt-3 pb-3 sm:pb-4 text-center">
-            <LogoGestaoDma className="mx-auto w-48 sm:w-64 h-auto text-emerald-800" />
+            <LogoGestaoDma
+              className="mx-auto w-48 sm:w-64 h-auto object-contain"
+              style={{
+                filter:
+                  'drop-shadow(0 0 1.5px #ffffff) drop-shadow(0 0 1.5px #ffffff) drop-shadow(0 0 1.5px #ffffff)',
+              }}
+            />
             <h1 className="text-lg sm:text-xl font-bold text-slate-900 -mt-2 sm:-mt-3">Gestão DMA Analytics</h1>
             <p className="text-xs sm:text-sm text-slate-400 mt-1">
               Sistema de Monitoramento de Contratos

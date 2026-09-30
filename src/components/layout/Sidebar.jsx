@@ -116,9 +116,15 @@ const Sidebar = ({ contractsAlertCount = 0, isOpen, onClose }) => {
   const sidebarContent = (
     <div className="h-full flex flex-col bg-emerald-950">
       {/* Logo Area */}
-      <div className="pt-6 pb-4 border-b border-emerald-900/20 flex flex-col items-center">
-        <LogoGestaoDma className="w-[12.5rem] h-auto text-white" />
-        <p className="mt-1 text-[11px] font-bold text-emerald-400/90 uppercase tracking-[0.35em]">
+      <div className="pt-6 pb-3 border-b border-emerald-900/20 flex flex-col items-center">
+        <LogoGestaoDma
+          className="w-[13.5rem] h-auto object-contain"
+          style={{
+            filter:
+              'drop-shadow(0 0 1.5px #ffffff) drop-shadow(0 0 1.5px #ffffff) drop-shadow(0 0 1.5px #ffffff)',
+          }}
+        />
+        <p className="relative z-10 text-[11px] font-bold text-emerald-400/90 uppercase tracking-[0.35em] -mt-11">
           Analytics
         </p>
         {/* Close button - mobile only */}
