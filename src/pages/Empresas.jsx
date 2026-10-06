@@ -7,7 +7,9 @@ import {
   Download,
   Eye,
   X,
-  Loader2
+  Loader2,
+  Copy,
+  Check
 } from 'lucide-react';
 import { formatCurrency } from '../utils/formatters';
 import Card from '../components/ui/Card';
@@ -49,10 +51,20 @@ const Empresas = () => {
   const [tablePage, setTablePage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [exportOpen, setExportOpen] = useState(false);
+  const [copiedField, setCopiedField] = useState(null); // `${nr}-processo` | null
 
-  // ─── Notas fiscais / atestes do contrato 61/2023 ─────────────────
+  const handleCopy = async (text, field) => {
+    try {
+      await navigator.clipboard.writeText(String(text));
+      setCopiedField(field);
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch (e) { /* clipboard indisponível */ }
+  };
+
+  // ─── Notas fiscais / atestes / planilha de controle do contrato 61/2023 ──
   const [docsNotas, setDocsNotas] = useState([]);
   const [docsAtestes, setDocsAtestes] = useState([]);
+  const [docsControle, setDocsControle] = useState([]);
   const [previewDoc, setPreviewDoc] = useState(null); // { doc, url, loading, error }
 
   useEffect(() => {
@@ -63,9 +75,10 @@ const Empresas = () => {
         const docs = data?.documentos || [];
         setDocsNotas(docs.filter((d) => d.grupo === 'notas-fiscais'));
         setDocsAtestes(docs.filter((d) => d.grupo === 'atestes-nf'));
+        setDocsControle(docs.filter((d) => d.grupo === 'controle-pagamento'));
       })
       .catch(() => {
-        if (ativo) { setDocsNotas([]); setDocsAtestes([]); }
+        if (ativo) { setDocsNotas([]); setDocsAtestes([]); setDocsControle([]); }
       });
     return () => { ativo = false; };
   }, []);
@@ -101,6 +114,22 @@ const Empresas = () => {
     }
     return map;
   }, [docsAtestes]);
+
+  // Mapa medicao -> planilha de controle de pagamento (documento do processo de pagamento)
+  const controleMap = useMemo(() => {
+    const map = new Map();
+    for (const d of docsControle) {
+      if (d.medicao) map.set(String(d.medicao), d);
+    }
+    return map;
+  }, [docsControle]);
+
+  // A planilha mais recente (normalmente cobre todas as medições); serve de acesso
+  // geral no cabeçalho da lista, além da planilha específica de cada medição.
+  const controleMaisRecente = useMemo(() => {
+    if (!docsControle.length) return null;
+    return [...docsControle].sort((a, b) => Number(b.medicao) - Number(a.medicao))[0];
+  }, [docsControle]);
 
   const getDocRelPath = (d) => (d?.arquivo ? String(d.arquivo).replace(/\\/g, '/') : null);
 
@@ -191,6 +220,7 @@ const Empresas = () => {
           dt_periodo_fim: linhas[0]?.dt_periodo_fim || '',
           dt_liberacao: linhas[0]?.dt_liberacao || '—',
           saldo: linhas[0]?.saldo_contrato || 0,
+          processo: linhas.find(l => l.nr_processo)?.nr_processo || '',
           totalPago,
           acumulado,
         };
@@ -219,6 +249,7 @@ const Empresas = () => {
   // Exportação (uma linha por pagamento)
   const exportColumns = useMemo(() => [
     { key: 'nr_medicao', label: 'Medição' },
+    { key: 'nr_processo', label: 'Processo de Pagamento' },
     { key: 'empresa', label: 'Empresa' },
     { key: 'periodo', label: 'Período' },
     { key: 'nr_nf', label: 'NF' },
@@ -231,8 +262,9 @@ const Empresas = () => {
     return filtrados.map(p => {
       const grupo = grupos.find(g => g.nr === p.nr_medicao);
       const perc = grupo?.totalPago > 0 ? ((p.vl_pago || 0) / grupo.totalPago) * 100 : 0;
-      return {
-        nr_medicao: p.nr_medicao ? `${p.nr_medicao}ª` : '',
+return {
+        nr_medicao: p.nr_medicao ? `${p.nr_medicao}a` : '',
+        nr_processo: p.nr_processo || '',
         empresa: p.empresa || '',
         periodo: p.periodo || '',
         nr_nf: p.nr_nf || '',
@@ -347,6 +379,22 @@ const Empresas = () => {
                             <span className="text-[11px] text-slate-500">
                               Período: {formatarPeriodo(g)}
                             </span>
+                            {g.processo && (
+                              <span className="inline-flex items-center gap-1.5">
+                                <span className="text-[11px] text-slate-500">
+                                  Processo de Pagamento: <span className="font-mono text-slate-700">{g.processo}</span>
+                                </span>
+                                <button
+                                  onClick={() => handleCopy(g.processo, `${g.nr}-processo`)}
+                                  className="p-1 rounded-md text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 transition-colors"
+                                  title="Copiar número do processo de pagamento"
+                                >
+                                  {copiedField === `${g.nr}-processo`
+                                    ? <Check size={13} strokeWidth={2} className="text-emerald-600" />
+                                    : <Copy size={13} strokeWidth={2} />}
+                                </button>
+                              </span>
+                            )}
                             <span className="text-[11px] font-bold text-slate-800">
                               Valor Total: {formatCurrency(g.totalPago)}
                             </span>
@@ -367,6 +415,29 @@ const Empresas = () => {
                                     onClick={() => handleDownloadDoc(ateste)}
                                     className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-slate-500 hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all"
                                     title="Baixar ateste"
+                                  >
+                                    <Download size={13} strokeWidth={2} />
+                                  </button>
+                                </span>
+                              );
+                            })()}
+                            {isAdmin() && (() => {
+                              const controle = controleMap.get(String(g.nr)) || controleMaisRecente;
+                              if (!controle) return null;
+                              return (
+                                <span className="inline-flex items-center gap-1">
+                                  <span className="text-[11px] text-slate-500">Controle de Pagamento:</span>
+                                  <button
+                                    onClick={() => handleVerDoc(controle)}
+                                    className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-emerald-700 hover:bg-emerald-50 border border-transparent hover:border-emerald-200 transition-all"
+                                    title="Visualizar planilha de controle de pagamento"
+                                  >
+                                    <Eye size={13} strokeWidth={2} />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDownloadDoc(controle)}
+                                    className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-slate-500 hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all"
+                                    title="Baixar planilha de controle de pagamento"
                                   >
                                     <Download size={13} strokeWidth={2} />
                                   </button>

@@ -9,7 +9,9 @@ import {
   X,
   FileSpreadsheet,
   Loader2,
-  Search
+  Search,
+  Copy,
+  Check
 } from 'lucide-react';
 import { BarChart, Bar, LineChart, Line, ReferenceLine, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
 import { formatCurrency, formatDate } from '../utils/formatters';
@@ -42,6 +44,16 @@ const Medicoes = () => {
   const [preview, setPreview] = useState(null);
   const [buscaMedicao, setBuscaMedicao] = useState('');
   const [chartTipo, setChartTipo] = useState('bar'); // 'bar' | 'line' | 'area'
+  const [copiedField, setCopiedField] = useState(null); // `${nu}-processo` | null
+
+  // Copia o processo de pagamento (número SEI) para a área de transferência
+  const handleCopy = async (text, field) => {
+    try {
+      await navigator.clipboard.writeText(String(text));
+      setCopiedField(field);
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch (e) { /* clipboard indisponível */ }
+  };
 
   // Fecha prévia com a tecla ESC (padrão das outras abas)
   useEffect(() => {
@@ -208,12 +220,14 @@ const Medicoes = () => {
         const arquivoMap = {};
         const boletimMap = {};
         const arquivoPdfMap = {};
+        const processoMap = {};
         metaList.forEach(m => {
           if (!m?.nuMedicao) return;
           const nu = String(m.nuMedicao);
           if (m?.arquivo) arquivoMap[nu] = String(m.arquivo).replace(/\\/g, '/');
           if (m?.boletimArquivo) boletimMap[nu] = String(m.boletimArquivo).replace(/\\/g, '/');
           if (m?.arquivoPdf) arquivoPdfMap[nu] = String(m.arquivoPdf).replace(/\\/g, '/');
+          if (m?.processoPagamento) processoMap[nu] = String(m.processoPagamento);
         });
         const rows = (details && Array.isArray(details.medicoes)) ? details.medicoes : [];
         const mapped = rows.map(m => {
@@ -231,6 +245,7 @@ const Medicoes = () => {
             arquivo: arquivoMap[nu] || null,
             boletimArquivo: boletimMap[nu] || null,
             arquivoPdf: arquivoPdfMap[nu] || null,
+            processoPagamento: processoMap[nu] || null,
           };
         });
         setMedicoesList(mapped);
@@ -298,8 +313,9 @@ const detailMap = React.useMemo(() => {
   }, [monthlyDetailPorPeriodo, contratos]);
 
   const exportColumns = useMemo(function() {
-    return [
-      { key: 'nuMedicao', label: 'Nº Medição' },
+return [
+      { key: 'nuMedicao', label: 'No Medição' },
+      { key: 'processoPagamento', label: 'Processo de Pagamento' },
       { key: 'deMedicao', label: 'Descrição' },
       { key: 'dtInimedicao', label: 'Início Período' },
       { key: 'dtFimmedicao', label: 'Fim Período' },
@@ -658,6 +674,7 @@ const detailMap = React.useMemo(() => {
   const exportData = React.useMemo(() => {
     return sortedMedicoes.map((m) => ({
       nuMedicao: m.nuMedicao,
+      processoPagamento: m.processoPagamento || '',
       deMedicao: m.deMedicao,
       dtInimedicao: m.dtInimedicao,
       dtFimmedicao: m.dtFimmedicao,
@@ -917,8 +934,11 @@ const detailMap = React.useMemo(() => {
           <table className="w-full text-left">
             <thead>
               <tr className="border-b border-emerald-100/30">
-                <th onClick={() => handleSort('nuMedicao')} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none w-16">
-                  Nº{sortConfig.key === 'nuMedicao' ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
+<th onClick={() => handleSort('nuMedicao')} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none w-16">
+                  No{sortConfig.key === 'nuMedicao' ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
+                </th>
+                <th onClick={() => handleSort('processoPagamento')} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none whitespace-nowrap">
+                  Processo de Pagamento{sortConfig.key === 'processoPagamento' ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
                 </th>
                 <th onClick={() => handleSort('dtMedicao')} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none whitespace-nowrap">
                   Data do Lançamento<br /> da Medição (SMO){sortConfig.key === 'dtMedicao' ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
@@ -944,7 +964,7 @@ const detailMap = React.useMemo(() => {
               {medicoesLoading ? (
                 [...Array(6)].map((_, i) => (
                   <tr key={i}>
-                    {[...Array(7)].map((_, j) => (
+                    {[...Array(8)].map((_, j) => (
                       <td key={j} className="px-4 py-3">
                         <Skeleton className={`h-6 ${j === 0 ? 'w-10' : 'w-20'}`} />
                       </td>
@@ -953,7 +973,7 @@ const detailMap = React.useMemo(() => {
                 ))
               ) : pagedMedicoes.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="px-6 py-20 text-center">
+                  <td colSpan="8" className="px-6 py-20 text-center">
                     <FileText size={40} className="mx-auto text-emerald-200 mb-4" strokeWidth={1.5} />
                     <p className="text-sm font-medium text-slate-400">Nenhuma medição encontrada</p>
                     <p className="text-xs text-slate-300 mt-1">Nenhuma medição cadastrada no backend</p>
@@ -969,10 +989,26 @@ const detailMap = React.useMemo(() => {
                       key={`${m.nuMedicao}-${idx}`}
                       className="group transition-all duration-200 hover:bg-emerald-50/40"
                     >
-                      <td className="px-4 py-3">
+<td className="px-4 py-3">
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 border border-emerald-100/50 text-[11px] font-semibold text-emerald-700">
                           {m.nuMedicao ? `${m.nuMedicao}ª` : '—'}
                         </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        {m.processoPagamento ? (
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono text-xs text-slate-600">{m.processoPagamento}</span>
+                            <button
+                              onClick={() => handleCopy(m.processoPagamento, `${m.nuMedicao}-processo`)}
+                              className="p-1 rounded-md text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 transition-colors"
+                              title="Copiar número do processo de pagamento"
+                            >
+                              {copiedField === `${m.nuMedicao}-processo`
+                                ? <Check size={13} strokeWidth={2} className="text-emerald-600" />
+                                : <Copy size={13} strokeWidth={2} />}
+                            </button>
+                          </div>
+                        ) : <span className="text-[11px] text-slate-300">—</span>}
                       </td>
                       <td className="px-4 py-3">
                         <span className="text-sm text-slate-700">{m.dtMedicao ? formatDate(m.dtMedicao) : '—'}</span>
