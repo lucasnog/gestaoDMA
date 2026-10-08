@@ -33,6 +33,12 @@ const EMPRESA_BADGE = {
   HS: 'warning',
 };
 
+// Rótulo exibido (o banco/planilha grava "HS"; a consorciada é a "HPT").
+const EMPRESA_LABEL_EXIBICAO = {
+  HS: 'HPT',
+};
+const rotuloEmpresa = (nome) => EMPRESA_LABEL_EXIBICAO[nome] || nome;
+
 const ORDEM_EMPRESAS = ['Dynatest', 'STE', 'HS'];
 
 // Empresa do controle de pagamentos -> rótulo usado nas notas fiscais
@@ -265,7 +271,7 @@ const Empresas = () => {
 return {
         nr_medicao: p.nr_medicao ? `${p.nr_medicao}a` : '',
         nr_processo: p.nr_processo || '',
-        empresa: p.empresa || '',
+        empresa: rotuloEmpresa(p.empresa) || '',
         periodo: p.periodo || '',
         nr_nf: p.nr_nf || '',
         vl_pago: p.vl_pago || 0,
@@ -328,7 +334,7 @@ return {
                   <Building2 size={15} className="text-emerald-600" strokeWidth={2} />
                 </div>
               </div>
-              <p className="text-sm sm:text-base font-bold text-slate-900 mb-1">{e.empresa}</p>
+              <p className="text-sm sm:text-base font-bold text-slate-900 mb-1">{rotuloEmpresa(e.empresa)}</p>
               <p className="text-lg sm:text-xl font-bold text-emerald-600 tracking-tight">{formatCurrency(e.total_pago)}</p>
               <div className="flex items-center gap-3 mt-1 sm:mt-2 text-[10px] text-slate-400">
                 <span className="flex items-center gap-1"><FileText size={10} strokeWidth={2} /> {e.total_medicoes} medições</span>
@@ -344,7 +350,7 @@ return {
           <DollarSign size={16} className="text-emerald-600" strokeWidth={2} />
           <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Medições</span>
           <span className="text-[10px] font-medium text-slate-400 ml-2">
-            {grupos.length} medições{empresasSel.length > 0 ? ` · ${empresasSel.join(', ')}` : ' · Todas as empresas'}
+            {grupos.length} medições{empresasSel.length > 0 ? ` · ${empresasSel.map(rotuloEmpresa).join(', ')}` : ' · Todas as empresas'}
           </span>
         </div>
 
@@ -465,7 +471,7 @@ return {
                             <td className="px-4 py-2"></td>
                             <td className="px-4 py-2">
                               <Badge variant={EMPRESA_BADGE[p.empresa] || 'neutral'} size="sm">
-                                {p.empresa}
+                                {rotuloEmpresa(p.empresa)}
                               </Badge>
                             </td>
                             <td className="px-4 py-2"></td>
