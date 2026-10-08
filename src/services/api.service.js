@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { API_URL } from '../config/constants';
+import { API_URL, CONTRATO_ALVO } from '../config/constants';
 import { auth } from './firebase';
 
 const api = axios.create({
@@ -326,19 +326,26 @@ export const getControlePagamentoTotais = async () => {
 };
 
 // ════════════════ EMPENHOS (ficha GERENCIADORA.xlsx) ════════════════
-
+// O backend passou a servir empenhos de TODOS os contratos (GEMOC Analytics).
+// Este projeto é de contrato único (61/2023), então escopamos sempre ao alvo.
 export const getEmpenhos = async (params = {}) => {
-    const response = await api.get('/gestaodma/empenhos', { params });
+    const response = await api.get('/gestaodma/empenhos', {
+        params: { cd_contrato: CONTRATO_ALVO.cd, ...params },
+    });
     return response.data;
 };
 
 export const getEmpenhosResumo = async () => {
-    const response = await api.get('/gestaodma/empenhos/resumo');
+    const response = await api.get('/gestaodma/empenhos/resumo', {
+        params: { cd_contrato: CONTRATO_ALVO.cd },
+    });
     return response.data;
 };
 
 export const getEmpenhosTotais = async () => {
-    const response = await api.get('/gestaodma/empenhos/totais');
+    const response = await api.get('/gestaodma/empenhos/totais', {
+        params: { cd_contrato: CONTRATO_ALVO.cd },
+    });
     return response.data;
 };
 
