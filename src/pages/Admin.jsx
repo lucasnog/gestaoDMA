@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Shield, CheckCircle, XCircle, UserCheck, UserX, RefreshCw, Mail, Calendar, Clock, Upload, Terminal, ExternalLink, Activity, Lock } from 'lucide-react';
 import { useAuthStore } from '../stores/auth.store';
-import api, { triggerDeploy } from '../services/api.service';
+import { useAtividadeStore } from '../stores/atividade.store';
+import api, { triggerDeploy, getUltimaAtividade } from '../services/api.service';
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import { MODULOS_DISPONIVEIS } from '../config/constants';
@@ -10,6 +11,10 @@ const Admin = () => {
   const { usersList, loadUsers, updateUserStatus, updateUserTipo, updateUserPermissoes, isAdmin, user, token } = useAuthStore();
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(null);
+  // Última atividade vem da auditoria de uso — liberada pela allowlist
+  // AUDIT_DASHBOARD_EMAILS. Fora dela a rota devolve 404 e a coluna some.
+  const podeVerUltimaAtividade = useAtividadeStore((s) => s.permitido);
+  const [ultimaAtividade, setUltimaAtividade] = useState(null);
 
   useEffect(() => {
     if (isAdmin()) {
@@ -17,6 +22,22 @@ const Admin = () => {
       loadUsers().finally(() => setLoading(false));
     }
   }, []);
+
+  useEffect(() => {
+    if (!isAdmin() || !podeVerUltimaAtividade) return;
+    getUltimaAtividade()
+      .then(({ usuarios }) => {
+        const mapa = {};
+        for (const u of usuarios || []) {
+          if (u.user_email) mapa[String(u.user_email).toLowerCase()] = u.ultimo_acesso;
+        }
+        setUltimaAtividade(mapa);
+      })
+      .catch(() => { /* sem acesso — a coluna não é exibida */ });
+  }, [podeVerUltimaAtividade]);
+
+  const ultimaAtividadeDe = (email) =>
+    ultimaAtividade && email ? ultimaAtividade[String(email).toLowerCase()] : null;
 
   const handleToggleStatus = async (uid, currentStatus) => {
     const novoStatus = currentStatus === 'ativo' ? 'pendente' : 'ativo';
@@ -159,20 +180,23 @@ const Admin = () => {
                 <th className="px-6 py-4 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Tipo</th>
                 <th className="px-6 py-4 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Primeiro Acesso</th>
                 <th className="px-6 py-4 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Último Login</th>
+                {podeVerUltimaAtividade && (
+                  <th className="px-6 py-4 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Última Atividade</th>
+                )}
                 <th className="px-6 py-4 text-[10px] font-semibold text-slate-500 uppercase tracking-wider text-right">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-emerald-100/10">
               {loading ? (
                 <tr>
-                  <td colSpan="7" className="px-6 py-12 text-center">
+                  <td colSpan={podeVerUltimaAtividade ? 8 : 7} className="px-6 py-12 text-center">
                     <RefreshCw size={24} className="mx-auto text-emerald-300 animate-spin mb-2" />
                     <p className="text-xs text-slate-400">Carregando usuários...</p>
                   </td>
                 </tr>
               ) : usersList.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="px-6 py-12 text-center">
+                  <td colSpan={podeVerUltimaAtividade ? 8 : 7} className="px-6 py-12 text-center">
                     <UserX size={32} className="mx-auto text-slate-300 mb-2" />
                     <p className="text-sm font-medium text-slate-400">Nenhum usuário encontrado</p>
                   </td>
@@ -215,6 +239,11 @@ const Admin = () => {
                     <td className="px-6 py-4">
                       <span className="text-[11px] text-slate-400">{formatDate(u.ultimoLogin)}</span>
                     </td>
+                    {podeVerUltimaAtividade && (
+                      <td className="px-6 py-4">
+                        <span className="text-[11px] text-slate-400">{formatDate(ultimaAtividadeDe(u.email))}</span>
+                      </td>
+                    )}
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <button

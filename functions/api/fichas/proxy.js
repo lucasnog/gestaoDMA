@@ -19,7 +19,7 @@ export async function onRequest(context) {
 
   try {
     const response = await fetch(backendUrl, {
-      headers: { 'Authorization': `Bearer ${token || ''}` }
+      headers: { 'Authorization': `Bearer ${token || ''}`, 'X-App': 'gestaodma' }
     });
 
     if (!response.ok) {

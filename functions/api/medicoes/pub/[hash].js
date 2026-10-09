@@ -16,7 +16,7 @@ export async function onRequest(context) {
   const backendUrl = `https://api.gemoc-analytics.workers.dev/api/medicoes/pub/${token}`;
 
   try {
-    const response = await fetch(backendUrl);
+    const response = await fetch(backendUrl, { headers: { 'X-App': 'gestaodma' } });
     if (!response.ok) {
       const text = await response.text();
       return new Response(text, { status: response.status });

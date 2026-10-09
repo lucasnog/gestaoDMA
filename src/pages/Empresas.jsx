@@ -30,21 +30,23 @@ import { useAuthStore } from '../stores/auth.store';
 const EMPRESA_BADGE = {
   Dynatest: 'success',
   STE: 'info',
-  HS: 'warning',
+  HPT: 'warning',
 };
 
-// Rótulo exibido (o banco/planilha grava "HS"; a consorciada é a "HPT").
+// Rótulo exibido da empresa (código do banco -> nome mostrado). "HS" é legado
+// (bancos antigos); o código canônico atual é "HPT".
 const EMPRESA_LABEL_EXIBICAO = {
   HS: 'HPT',
 };
 const rotuloEmpresa = (nome) => EMPRESA_LABEL_EXIBICAO[nome] || nome;
 
-const ORDEM_EMPRESAS = ['Dynatest', 'STE', 'HS'];
+const ORDEM_EMPRESAS = ['Dynatest', 'STE', 'HPT', 'HS'];
 
 // Empresa do controle de pagamentos -> rótulo usado nas notas fiscais
 const EMPRESA_NOTA = {
   Dynatest: 'DYNATEST',
   STE: 'STE',
+  HPT: 'HUMBERTO SANTANA',
   HS: 'HUMBERTO SANTANA',
 };
 

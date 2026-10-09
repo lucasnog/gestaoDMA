@@ -6,7 +6,10 @@ const api = axios.create({
     baseURL: API_URL,
     // Evita que uma requisição trave a UI indefinidamente (ex.: backend
     // sem resposta no meio do login, que dava a sensação de "tela travada").
-    timeout: 120000
+    timeout: 120000,
+    // Identifica o app para a auditoria de atividade: os dois frontends
+    // (GEMOC e Gestão DMA) compartilham o mesmo backend/audit.db.
+    headers: { 'X-App': 'gestaodma' }
 });
 
 // ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
