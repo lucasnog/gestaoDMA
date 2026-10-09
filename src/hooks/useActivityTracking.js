@@ -29,7 +29,7 @@ export function useActivityTracking() {
         if (!path || assinatura === ultimoEnviado.current) return;
         ultimoEnviado.current = assinatura;
 
-        const headers = { 'Content-Type': 'application/json', 'X-App': 'gestaodma' };
+        const headers = { 'Content-Type': 'application/json' };
         if (token) headers['Authorization'] = `Bearer ${token}`;
 
         try {
