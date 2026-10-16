@@ -9,7 +9,8 @@ import {
   X,
   Loader2,
   Copy,
-  Check
+  Check,
+  Clock
 } from 'lucide-react';
 import { formatCurrency } from '../utils/formatters';
 import Card from '../components/ui/Card';
@@ -69,9 +70,8 @@ const Empresas = () => {
     } catch (e) { /* clipboard indisponível */ }
   };
 
-  // ─── Notas fiscais / atestes / planilha de controle do contrato 61/2023 ──
+  // ─── Notas fiscais / planilha de controle do contrato 61/2023 ──
   const [docsNotas, setDocsNotas] = useState([]);
-  const [docsAtestes, setDocsAtestes] = useState([]);
   const [docsControle, setDocsControle] = useState([]);
   const [previewDoc, setPreviewDoc] = useState(null); // { doc, url, loading, error }
 
@@ -82,11 +82,10 @@ const Empresas = () => {
         if (!ativo) return;
         const docs = data?.documentos || [];
         setDocsNotas(docs.filter((d) => d.grupo === 'notas-fiscais'));
-        setDocsAtestes(docs.filter((d) => d.grupo === 'atestes-nf'));
         setDocsControle(docs.filter((d) => d.grupo === 'controle-pagamento'));
       })
       .catch(() => {
-        if (ativo) { setDocsNotas([]); setDocsAtestes([]); setDocsControle([]); }
+        if (ativo) { setDocsNotas([]); setDocsControle([]); }
       });
     return () => { ativo = false; };
   }, []);
@@ -113,15 +112,6 @@ const Empresas = () => {
     if (!label) return null;
     return notasMap.get(`${p.nr_medicao}|${label}`) || null;
   };
-
-  // Mapa medicao -> ateste de nota fiscal
-  const atestesMap = useMemo(() => {
-    const map = new Map();
-    for (const d of docsAtestes) {
-      if (d.medicao) map.set(String(d.medicao), d);
-    }
-    return map;
-  }, [docsAtestes]);
 
   // Mapa medicao -> planilha de controle de pagamento (documento do processo de pagamento)
   const controleMap = useMemo(() => {
@@ -231,6 +221,9 @@ const Empresas = () => {
           processo: linhas.find(l => l.nr_processo)?.nr_processo || '',
           totalPago,
           acumulado,
+          // Medição ainda não lançada no controle de pagamento (valores vindos
+          // do banco SMO, rateados pelo percentual do consórcio).
+          pendente: linhas.some(l => l.pendente_lancamento),
         };
       });
   }, [filtrados]);
@@ -407,48 +400,36 @@ return {
                               Valor Total: {formatCurrency(g.totalPago)}
                             </span>
                             {isAdmin() && (() => {
-                              const ateste = atestesMap.get(String(g.nr));
-                              if (!ateste) return null;
-                              return (
-                                <span className="inline-flex items-center gap-1">
-                                  <span className="text-[11px] text-slate-500">Ateste:</span>
-                                  <button
-                                    onClick={() => handleVerDoc(ateste)}
-                                    className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-emerald-700 hover:bg-emerald-50 border border-transparent hover:border-emerald-200 transition-all"
-                                    title="Visualizar ateste"
-                                  >
-                                    <Eye size={13} strokeWidth={2} />
-                                  </button>
-                                  <button
-                                    onClick={() => handleDownloadDoc(ateste)}
-                                    className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-slate-500 hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all"
-                                    title="Baixar ateste"
-                                  >
-                                    <Download size={13} strokeWidth={2} />
-                                  </button>
-                                </span>
-                              );
-                            })()}
-                            {isAdmin() && (() => {
-                              const controle = controleMap.get(String(g.nr)) || controleMaisRecente;
-                              if (!controle) return null;
+                              const controle = controleMap.get(String(g.nr));
+                              // Medição ainda sem planilha própria de controle: não cai
+                              // para a planilha de outra medição (evita mostrar a do 38).
+                              const doc = controle || (!g.pendente ? controleMaisRecente : null);
                               return (
                                 <span className="inline-flex items-center gap-1">
                                   <span className="text-[11px] text-slate-500">Controle de Pagamento:</span>
-                                  <button
-                                    onClick={() => handleVerDoc(controle)}
-                                    className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-emerald-700 hover:bg-emerald-50 border border-transparent hover:border-emerald-200 transition-all"
-                                    title="Visualizar planilha de controle de pagamento"
-                                  >
-                                    <Eye size={13} strokeWidth={2} />
-                                  </button>
-                                  <button
-                                    onClick={() => handleDownloadDoc(controle)}
-                                    className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-slate-500 hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all"
-                                    title="Baixar planilha de controle de pagamento"
-                                  >
-                                    <Download size={13} strokeWidth={2} />
-                                  </button>
+                                  {doc ? (
+                                    <>
+                                      <button
+                                        onClick={() => handleVerDoc(doc)}
+                                        className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-emerald-700 hover:bg-emerald-50 border border-transparent hover:border-emerald-200 transition-all"
+                                        title="Visualizar planilha de controle de pagamento"
+                                      >
+                                        <Eye size={13} strokeWidth={2} />
+                                      </button>
+                                      <button
+                                        onClick={() => handleDownloadDoc(doc)}
+                                        className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-slate-500 hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all"
+                                        title="Baixar planilha de controle de pagamento"
+                                      >
+                                        <Download size={13} strokeWidth={2} />
+                                      </button>
+                                    </>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200/70 text-[10px] font-semibold text-amber-700" title="A planilha de controle de pagamento desta medição ainda não foi lançada no SEI">
+                                      <Clock size={11} strokeWidth={2} />
+                                      Aguardando lançamento no SEI
+                                    </span>
+                                  )}
                                 </span>
                               );
                             })()}
