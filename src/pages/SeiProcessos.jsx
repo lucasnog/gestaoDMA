@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Inbox, AlertTriangle, Calendar, BarChart3, RefreshCw, ChevronDown, ChevronUp, TrendingUp, Activity } from 'lucide-react';
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import Card from '../components/ui/Card';
 
 import api from '../services/api.service';
@@ -80,6 +81,7 @@ function SeiProcessos() {
   const [loading, setLoading] = useState(true);
   const [filtroTipo, setFiltroTipo] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('todos');
+  const [chartTipo, setChartTipo] = useState('bar');
   const [porTipoAberto, setPorTipoAberto] = useState(false);
   const [expanded, setExpanded] = useState(new Set());
 
@@ -238,20 +240,72 @@ function SeiProcessos() {
               </div>
             </Card>
           </button>
-          <button onClick={() => { setFiltroStatus(filtroStatus === 'prioridade' ? 'todos' : 'prioridade'); setFiltroTipo(''); }} className="text-left">
-            <Card className={`p-3 sm:p-4 border border-slate-100/80 shadow-sm transition-all duration-200 ${filtroStatus === 'prioridade' ? 'ring-2 ring-red-500 ring-offset-2' : ''}`}>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center">
-                  <AlertTriangle size={20} className="text-red-600" />
-                </div>
-                <div>
-                  <p className="text-xl sm:text-2xl font-bold text-slate-900">{stats.comPrioridade}</p>
-                  <p className="text-[10px] sm:text-xs font-medium text-slate-400">Com prioridade</p>
-                </div>
-              </div>
-            </Card>
-          </button>
         </div>
+      )}
+
+      {/* Gráfico — processos dos últimos 30 dias (modelo Medições) */}
+      {kpis && kpis.serie && (
+        <Card className="p-4 sm:p-6 border border-emerald-100/50 shadow-sm">
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <BarChart3 size={16} className="text-emerald-600" strokeWidth={2} />
+              <span className="text-xs sm:text-sm font-bold text-slate-900 mr-1">Processos por dia</span>
+            </div>
+            <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5">
+              {[
+                { key: 'bar', label: 'Barras' },
+                { key: 'line', label: 'Linha' },
+              ].map(opt => (
+                <button
+                  key={opt.key}
+                  onClick={() => setChartTipo(opt.key)}
+                  className={`px-2.5 py-1 rounded-md text-[10px] sm:text-[11px] font-semibold transition-all ${
+                    chartTipo === opt.key
+                      ? 'bg-white text-emerald-700 shadow-sm'
+                      : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="h-48 sm:h-64 chart-no-focus">
+            {chartTipo === 'bar' ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={kpis.serie} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="data" tick={{ fontSize: 10, fill: '#94a3b8' }} tickLine={false} axisLine={{ stroke: '#e2e8f0' }} minTickGap={24} />
+                  <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} tickLine={false} axisLine={false} allowDecimals={false} />
+                  <Tooltip
+                    contentStyle={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
+                    formatter={(value, name) => (name === 'novos' ? [value, 'Novos'] : name === 'retornos' ? [value, 'Retornados'] : [value, 'Total'])}
+                    labelFormatter={(label) => new Date(label + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                    cursor={{ fill: '#f0fdf4' }}
+                  />
+                  <Bar dataKey="novos" stackId="a" fill="#10b981" radius={[0, 0, 0, 0]} maxBarSize={22} name="Novos" />
+                  <Bar dataKey="retornos" stackId="a" fill="#f59e0b" radius={[4, 4, 0, 0]} maxBarSize={22} name="Retornados" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={kpis.serie} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="data" tick={{ fontSize: 10, fill: '#94a3b8' }} tickLine={false} axisLine={{ stroke: '#e2e8f0' }} minTickGap={24} />
+                  <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} tickLine={false} axisLine={false} allowDecimals={false} />
+                  <Tooltip
+                    contentStyle={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
+                    formatter={(value, name) => (name === 'novos' ? [value, 'Novos'] : name === 'retornos' ? [value, 'Retornados'] : [value, 'Total'])}
+                    labelFormatter={(label) => new Date(label + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                    cursor={{ stroke: '#059669', strokeWidth: 1 }}
+                  />
+                  <Line type="monotone" dataKey="novos" stroke="#10b981" strokeWidth={2} dot={{ r: 2, fill: '#10b981' }} name="Novos" />
+                  <Line type="monotone" dataKey="retornos" stroke="#f59e0b" strokeWidth={2} dot={{ r: 2, fill: '#f59e0b' }} name="Retornados" />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </Card>
       )}
 
       {stats && stats.porTipo && stats.porTipo.length > 0 && (
