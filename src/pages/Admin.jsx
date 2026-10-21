@@ -645,8 +645,18 @@ const MonitorStatus = () => {
                 <span className="text-slate-400">Total de processos</span>
                 <span className="text-slate-700 font-medium text-right">{stats.total}</span>
 
-                <span className="text-slate-400">Recebidos hoje</span>
-                <span className="text-slate-700 font-medium text-right">{stats.hoje}</span>
+                <span className="text-slate-400">Chegaram hoje</span>
+                <span className="text-slate-700 font-medium text-right">{stats.hoje ?? stats.novos}</span>
+
+                {stats.novos !== undefined && (
+                  <>
+                    <span className="text-slate-400 pl-3">Novos</span>
+                    <span className="text-slate-700 font-medium text-right">{stats.novos}</span>
+
+                    <span className="text-slate-400 pl-3">Retornados</span>
+                    <span className="text-slate-700 font-medium text-right">{stats.retornos}</span>
+                  </>
+                )}
 
                 <span className="text-slate-400">Com prioridade</span>
                 <span className="text-slate-700 font-medium text-right">{stats.comPrioridade}</span>

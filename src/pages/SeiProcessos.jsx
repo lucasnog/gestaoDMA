@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Inbox, AlertTriangle, Calendar, BarChart3, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
+import { Inbox, AlertTriangle, Calendar, BarChart3, RefreshCw, ChevronDown, ChevronUp, TrendingUp, Activity } from 'lucide-react';
 import Card from '../components/ui/Card';
 
 import api from '../services/api.service';
@@ -36,7 +36,13 @@ function fmtDateShort(d) {
 
 function statusBadge(proc) {
   if (proc.prioridade) return { label: 'Prioridade', class: 'bg-red-100 text-red-700 border-red-200' };
+  if (ehRetornoHoje(proc)) return { label: '↩ Retorno', class: 'bg-amber-100 text-amber-700 border-amber-200' };
   return null;
+}
+
+function ehRetornoHoje(proc) {
+  const hojeStr = new Date().toISOString().slice(0, 10);
+  return !!(proc.ultimo_retorno && String(proc.ultimo_retorno).startsWith(hojeStr));
 }
 
 function TextoExpansivel({ texto, aberto, aoClicar }) {
@@ -70,6 +76,7 @@ function SeiProcessos() {
 
   const [processos, setProcessos] = useState([]);
   const [stats, setStats] = useState(null);
+  const [kpis, setKpis] = useState(null);
   const [loading, setLoading] = useState(true);
   const [filtroTipo, setFiltroTipo] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('todos');
@@ -90,10 +97,12 @@ function SeiProcessos() {
     Promise.all([
       api.get('/sei/processos?limit=200').then(r => r.data),
       api.get('/sei/processos/stats').then(r => r.data),
+      api.get('/sei/processos/kpis').then(r => r.data).catch(() => null),
     ])
-      .then(([procs, st]) => {
+      .then(([procs, st, k]) => {
         setProcessos(procs.data || []);
         setStats(st);
+        setKpis(k);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -116,12 +125,15 @@ function SeiProcessos() {
     if (filtroStatus === 'prioridade') lista = lista.filter(p => p.prioridade);
     else if (filtroStatus === 'hoje') {
       const hojeStr = new Date().toISOString().slice(0, 10);
-      lista = lista.filter(p => String(p.primeira_vez).startsWith(hojeStr));
+      lista = lista.filter(p =>
+        String(p.primeira_vez).startsWith(hojeStr) ||
+        (p.ultimo_retorno && String(p.ultimo_retorno).startsWith(hojeStr))
+      );
     }
-    // Ordena: do mais recente ao mais antigo
+    // Ordena: do mais recente ao mais antigo (considera retornos)
     lista.sort((a, b) => {
-      const da = new Date(a.primeira_vez || 0).getTime();
-      const db = new Date(b.primeira_vez || 0).getTime();
+      const da = new Date(a.ultima_atividade || a.primeira_vez || 0).getTime();
+      const db = new Date(b.ultima_atividade || b.primeira_vez || 0).getTime();
       return db - da;
     });
     return lista;
@@ -143,6 +155,55 @@ function SeiProcessos() {
           Atualizar
         </button>
       </div>
+
+      {/* KPI Cards — modelo dos demais módulos */}
+      {kpis && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 lg:gap-5">
+          <Card className="p-3 sm:p-4 lg:p-5 border border-emerald-100/50 shadow-sm transition-all duration-300 group">
+            <div className="flex items-start justify-between mb-2 sm:mb-3">
+              <div className="w-8 h-8 sm:w-9 sm:h-9 lg:w-10 lg:h-10 rounded-xl bg-gradient-to-br from-blue-600 to-blue-700 flex items-center justify-center shadow-sm shadow-blue-500/20 group-hover:scale-110 transition-transform duration-300">
+                <Inbox size={14} className="text-white" strokeWidth={2} />
+              </div>
+            </div>
+            <p className="text-[9px] sm:text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Total de processos</p>
+            <p className="text-sm sm:text-base lg:text-xl xl:text-2xl font-bold text-slate-900 tracking-tight whitespace-nowrap">{kpis.total}</p>
+            <p className="text-[9px] sm:text-[10px] text-slate-400 mt-0.5 sm:mt-1">carteira completa</p>
+          </Card>
+
+          <Card className="p-3 sm:p-4 lg:p-5 border border-emerald-100/50 shadow-sm transition-all duration-300 group">
+            <div className="flex items-start justify-between mb-2 sm:mb-3">
+              <div className="w-8 h-8 sm:w-9 sm:h-9 lg:w-10 lg:h-10 rounded-xl bg-gradient-to-br from-emerald-600 to-emerald-700 flex items-center justify-center shadow-sm shadow-emerald-500/20 group-hover:scale-110 transition-transform duration-300">
+                <Calendar size={14} className="text-white" strokeWidth={2} />
+              </div>
+            </div>
+            <p className="text-[9px] sm:text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Chegaram hoje</p>
+            <p className="text-sm sm:text-base lg:text-xl xl:text-2xl font-bold text-slate-900 tracking-tight whitespace-nowrap">{kpis.chegadosHoje}</p>
+            <p className="text-[9px] sm:text-[10px] text-slate-400 mt-0.5 sm:mt-1">{kpis.novosHoje} novos · {kpis.retornadosHoje} retornados</p>
+          </Card>
+
+          <Card className="p-3 sm:p-4 lg:p-5 border border-emerald-100/50 shadow-sm transition-all duration-300 group">
+            <div className="flex items-start justify-between mb-2 sm:mb-3">
+              <div className="w-8 h-8 sm:w-9 sm:h-9 lg:w-10 lg:h-10 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center shadow-sm shadow-teal-500/20 group-hover:scale-110 transition-transform duration-300">
+                <Activity size={14} className="text-white" strokeWidth={2} />
+              </div>
+            </div>
+            <p className="text-[9px] sm:text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Média diária</p>
+            <p className="text-sm sm:text-base lg:text-xl xl:text-2xl font-bold text-slate-900 tracking-tight whitespace-nowrap">{kpis.mediaDiaria7}</p>
+            <p className="text-[9px] sm:text-[10px] text-slate-400 mt-0.5 sm:mt-1">últimos 7 dias</p>
+          </Card>
+
+          <Card className="p-3 sm:p-4 lg:p-5 border border-emerald-100/50 shadow-sm transition-all duration-300 group">
+            <div className="flex items-start justify-between mb-2 sm:mb-3">
+              <div className="w-8 h-8 sm:w-9 sm:h-9 lg:w-10 lg:h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-sm shadow-amber-500/20 group-hover:scale-110 transition-transform duration-300">
+                <TrendingUp size={14} className="text-white" strokeWidth={2} />
+              </div>
+            </div>
+            <p className="text-[9px] sm:text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Média semanal</p>
+            <p className="text-sm sm:text-base lg:text-xl xl:text-2xl font-bold text-slate-900 tracking-tight whitespace-nowrap">{kpis.mediaSemanal}</p>
+            <p className="text-[9px] sm:text-[10px] text-slate-400 mt-0.5 sm:mt-1">{kpis.mediaDiaria30} dia / últimos 30 dias</p>
+          </Card>
+        </div>
+      )}
 
       {stats && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
@@ -166,8 +227,13 @@ function SeiProcessos() {
                   <Calendar size={20} className="text-blue-600" />
                 </div>
                 <div>
-                  <p className="text-xl sm:text-2xl font-bold text-slate-900">{stats.hoje}</p>
-                  <p className="text-[10px] sm:text-xs font-medium text-slate-400">Recebidos hoje</p>
+                  <p className="text-xl sm:text-2xl font-bold text-slate-900">{stats.hoje ?? stats.novos}</p>
+                  <p className="text-[10px] sm:text-xs font-medium text-slate-400">
+                    Chegaram hoje
+                    {stats.novos !== undefined && (
+                      <span className="text-slate-400"> · {stats.novos} novos {stats.retornos ? `+ ${stats.retornos} retornados` : ''}</span>
+                    )}
+                  </p>
                 </div>
               </div>
             </Card>
@@ -289,11 +355,14 @@ function SeiProcessos() {
                       </td>
                       <td className="px-5 py-4">
                         <div className="text-right">
-                          <p className="text-xs text-slate-500" title={fmtDate(proc.data_anotacao || proc.ultima_vez)}>
-                            {fmtDateShort(proc.data_anotacao || proc.ultima_vez)}
+                          <p className="text-xs text-slate-500" title={fmtDate(proc.data_anotacao || proc.ultima_atividade || proc.ultima_vez)}>
+                            {fmtDateShort(proc.data_anotacao || proc.ultima_atividade || proc.ultima_vez)}
                           </p>
+                          {proc.ultimo_retorno && (
+                            <p className="text-[10px] text-amber-600 font-medium">Retorno: {fmtDateShort(proc.ultimo_retorno)}</p>
+                          )}
                           {proc.retorno_programado && (
-                            <p className="text-[10px] text-amber-600 font-medium">Retorno: {proc.retorno_programado}</p>
+                            <p className="text-[10px] text-amber-600 font-medium">Retorno prog.: {proc.retorno_programado}</p>
                           )}
                         </div>
                       </td>
