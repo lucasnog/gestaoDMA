@@ -7,6 +7,15 @@ import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import { MODULOS_DISPONIVEIS } from '../config/constants';
 
+// O botão de deploy (git pull + rebuild em produção) permanece restrito a estes
+// e-mails — as demais seções (Permissões e Servidor) são liberadas para
+// qualquer admin (tipo === 'admin').
+const DEPLOY_EMAILS = [
+  'lucas.nlopes04@gmail.com',
+  'ingcrispere94@gmail.com',
+  'tati.souza02.ts@gmail.com',
+];
+
 const Admin = () => {
   const { usersList, loadUsers, updateUserStatus, updateUserTipo, updateUserPermissoes, isAdmin, user, token } = useAuthStore();
   const [loading, setLoading] = useState(false);
@@ -291,7 +300,7 @@ const Admin = () => {
       </Card>
 
       {/* ─── Permissões de Acesso ─────────── */}
-      {(user?.email === 'lucas.nlopes04@gmail.com' || user?.email === 'englucasnog@gmail.com' || user?.email === 'ingcrispere94@gmail.com' || user?.email === 'tati.souza02.ts@gmail.com') && (
+      {isAdmin() && (
         <Card className="border border-emerald-100/50 overflow-hidden">
           <div className="px-6 py-4 border-b border-emerald-100/30 flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-violet-700 flex items-center justify-center shadow-lg shadow-violet-500/20">
@@ -314,12 +323,12 @@ const Admin = () => {
       )}
 
       {/* ─── Informações do servidor ─────────── */}
-      {(user?.email === 'lucas.nlopes04@gmail.com' || user?.email === 'ingcrispere94@gmail.com' || user?.email === 'tati.souza02.ts@gmail.com') && (
+      {isAdmin() && (
         <ServerInfo token={token} />
       )}
 
       {/* ─── Seção de Deploy ─────────── */}
-      {(user?.email === 'lucas.nlopes04@gmail.com' || user?.email === 'ingcrispere94@gmail.com' || user?.email === 'tati.souza02.ts@gmail.com') && (
+      {DEPLOY_EMAILS.includes(String(user?.email || '').toLowerCase()) && (
         <DeploySection token={token} />
       )}
     </div>
