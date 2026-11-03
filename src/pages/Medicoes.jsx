@@ -11,7 +11,9 @@ import {
   Loader2,
   Search,
   Copy,
-  Check
+  Check,
+  Clock,
+  BadgeCheck
 } from 'lucide-react';
 import { BarChart, Bar, LineChart, Line, ReferenceLine, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
 import { formatCurrency, formatDate } from '../utils/formatters';
@@ -221,6 +223,8 @@ const Medicoes = () => {
         const boletimMap = {};
         const arquivoPdfMap = {};
         const processoMap = {};
+        const pagaMap = {};
+        const dataPagamentoMap = {};
         metaList.forEach(m => {
           if (!m?.nuMedicao) return;
           const nu = String(m.nuMedicao);
@@ -228,6 +232,8 @@ const Medicoes = () => {
           if (m?.boletimArquivo) boletimMap[nu] = String(m.boletimArquivo).replace(/\\/g, '/');
           if (m?.arquivoPdf) arquivoPdfMap[nu] = String(m.arquivoPdf).replace(/\\/g, '/');
           if (m?.processoPagamento) processoMap[nu] = String(m.processoPagamento);
+          pagaMap[nu] = !!m?.paga;
+          if (m?.dataPagamento) dataPagamentoMap[nu] = m.dataPagamento;
         });
         const rows = (details && Array.isArray(details.medicoes)) ? details.medicoes : [];
         const mapped = rows.map(m => {
@@ -246,6 +252,8 @@ const Medicoes = () => {
             boletimArquivo: boletimMap[nu] || null,
             arquivoPdf: arquivoPdfMap[nu] || null,
             processoPagamento: processoMap[nu] || null,
+            paga: !!pagaMap[nu],
+            dataPagamento: dataPagamentoMap[nu] || null,
           };
         });
         setMedicoesList(mapped);
@@ -940,6 +948,9 @@ return [
                 <th onClick={() => handleSort('processoPagamento')} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none whitespace-nowrap">
                   Processo de Pagamento{sortConfig.key === 'processoPagamento' ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
                 </th>
+                <th className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider text-center whitespace-nowrap">
+                  Pagamento
+                </th>
                 <th onClick={() => handleSort('dtMedicao')} className="px-4 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-emerald-600 select-none whitespace-nowrap">
                   Data do Lançamento<br /> da Medição (SMO){sortConfig.key === 'dtMedicao' ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
                 </th>
@@ -964,7 +975,7 @@ return [
               {medicoesLoading ? (
                 [...Array(6)].map((_, i) => (
                   <tr key={i}>
-                    {[...Array(8)].map((_, j) => (
+                    {[...Array(9)].map((_, j) => (
                       <td key={j} className="px-4 py-3">
                         <Skeleton className={`h-6 ${j === 0 ? 'w-10' : 'w-20'}`} />
                       </td>
@@ -973,7 +984,7 @@ return [
                 ))
               ) : pagedMedicoes.length === 0 ? (
                 <tr>
-                  <td colSpan="8" className="px-6 py-20 text-center">
+                  <td colSpan="9" className="px-6 py-20 text-center">
                     <FileText size={40} className="mx-auto text-emerald-200 mb-4" strokeWidth={1.5} />
                     <p className="text-sm font-medium text-slate-400">Nenhuma medição encontrada</p>
                     <p className="text-xs text-slate-300 mt-1">Nenhuma medição cadastrada no backend</p>
@@ -1009,6 +1020,19 @@ return [
                             </button>
                           </div>
                         ) : <span className="text-[11px] text-slate-300">—</span>}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        {m.paga ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-200/70 text-[10px] font-semibold text-emerald-700" title={m.dataPagamento ? `Paga em ${m.dataPagamento}` : 'Paga'}>
+                            <BadgeCheck size={11} strokeWidth={2} />
+                            Paga{m.dataPagamento ? ` ${m.dataPagamento}` : ''}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200/70 text-[10px] font-semibold text-amber-700" title="Aguardando Ordem de Pagamento (SEI)">
+                            <Clock size={11} strokeWidth={2} />
+                            Pendente
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         <span className="text-sm text-slate-700">{m.dtMedicao ? formatDate(m.dtMedicao) : '—'}</span>

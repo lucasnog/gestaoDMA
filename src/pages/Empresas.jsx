@@ -10,7 +10,8 @@ import {
   Loader2,
   Copy,
   Check,
-  Clock
+  Clock,
+  BadgeCheck
 } from 'lucide-react';
 import { formatCurrency } from '../utils/formatters';
 import Card from '../components/ui/Card';
@@ -224,6 +225,9 @@ const Empresas = () => {
           // Medição ainda não lançada no controle de pagamento (valores vindos
           // do banco SMO, rateados pelo percentual do consórcio).
           pendente: linhas.some(l => l.pendente_lancamento),
+          // Status de pagamento (Ordem de Pagamento do SEI).
+          paga: linhas.some(l => l.paga),
+          dataPagamento: linhas.find(l => l.data_pagamento)?.data_pagamento || null,
         };
       });
   }, [filtrados]);
@@ -399,6 +403,17 @@ return {
                             <span className="text-[11px] font-bold text-slate-800">
                               Valor Total: {formatCurrency(g.totalPago)}
                             </span>
+                            {g.paga ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-200/70 text-[10px] font-semibold text-emerald-700" title={g.dataPagamento ? `Paga em ${g.dataPagamento}` : 'Paga'}>
+                                <BadgeCheck size={11} strokeWidth={2} />
+                                Paga{g.dataPagamento ? ` em ${g.dataPagamento}` : ''}
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200/70 text-[10px] font-semibold text-amber-700" title="Aguardando pagamento (sem Ordem de Pagamento no SEI)">
+                                <Clock size={11} strokeWidth={2} />
+                                Pendente
+                              </span>
+                            )}
                             {isAdmin() && (() => {
                               const controle = controleMap.get(String(g.nr));
                               // Medição ainda sem planilha própria de controle: não cai

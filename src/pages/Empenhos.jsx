@@ -126,6 +126,7 @@ const Empenhos = () => {
 
   const exportColumns = [
     { key: 'nr_empenho', label: 'Empenho' },
+    { key: 'data_empenho', label: 'Data do Empenho' },
     { key: 'tipo', label: 'Tipo' },
     { key: 'ano', label: 'Ano' },
     { key: 'saldo_empenhado', label: 'Saldo Empenhado' },
@@ -139,6 +140,7 @@ const Empenhos = () => {
   const exportData = useMemo(() =>
     filtrados.map(e => ({
       nr_empenho: e.nr_empenho,
+      data_empenho: e.data_empenho || '',
       tipo: (e.tipo && TIPO_LABEL[e.tipo]) || e.tipo || '',
       ano: e.ano || '',
       saldo_empenhado: e.saldo_empenhado || 0,
@@ -320,6 +322,7 @@ const Empenhos = () => {
               <thead>
                 <tr className="border-b border-emerald-100/30 bg-emerald-50/30">
                   <th className="px-3 sm:px-6 py-3 text-left text-[9px] sm:text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Empenho</th>
+                  <th className="px-3 sm:px-6 py-3 text-left text-[9px] sm:text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Data do Empenho</th>
                   <th className="px-3 sm:px-6 py-3 text-left text-[9px] sm:text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Tipo</th>
                   <th className="px-3 sm:px-6 py-3 text-left text-[9px] sm:text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Ano</th>
                   <th className="px-3 sm:px-6 py-3 text-right text-[9px] sm:text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Saldo Empenhado</th>
@@ -332,7 +335,7 @@ const Empenhos = () => {
               <tbody>
                 {paged.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-3 sm:px-6 py-8 text-center text-slate-400 text-xs">
+                    <td colSpan={9} className="px-3 sm:px-6 py-8 text-center text-slate-400 text-xs">
                       Nenhum empenho encontrado
                     </td>
                   </tr>
@@ -341,6 +344,9 @@ const Empenhos = () => {
                     <tr key={e.id || idx} className="group transition-all duration-200 hover:bg-emerald-50/40">
                       <td className="px-3 sm:px-6 py-3 sm:py-4">
                         <span className="text-[11px] sm:text-sm font-semibold text-slate-900">{e.nr_empenho}</span>
+                      </td>
+                      <td className="px-3 sm:px-6 py-3 sm:py-4">
+                        <span className="text-[11px] sm:text-sm font-medium text-slate-700">{e.data_empenho || '—'}</span>
                       </td>
                       <td className="px-3 sm:px-6 py-3 sm:py-4">
                         {e.tipo ? (
