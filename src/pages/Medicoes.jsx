@@ -13,7 +13,8 @@ import {
   Copy,
   Check,
   Clock,
-  BadgeCheck
+  BadgeCheck,
+  Eye
 } from 'lucide-react';
 import { BarChart, Bar, LineChart, Line, ReferenceLine, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
 import { formatCurrency, formatDate } from '../utils/formatters';
@@ -25,6 +26,7 @@ import ExportDialog from '../components/ui/ExportDialog';
 import { useDashboardContext } from '../layouts/DashboardLayout';
 import { CONTRATO_ALVO } from '../config/constants';
 import { API_URL } from '../config/constants';
+import { useAuthStore } from '../stores/auth.store';
 
 const Medicoes = () => {
   const { contratos, contratosRaw, loading, selectedBloco, selectedBlocos, selectedSegmentos, blocosDisponiveis, customDateStart, customDateEnd, selectedPeriod } = useDashboardContext();
@@ -43,6 +45,8 @@ const Medicoes = () => {
   const [sortConfig, setSortConfig] = useState({ key: null, direction: null });
   const [medicoesList, setMedicoesList] = useState([]);
   const [medicoesLoading, setMedicoesLoading] = useState(true);
+  const [ordemDocs, setOrdemDocs] = useState({}); // medição -> doc da Ordem de Pagamento
+  const { isAdmin } = useAuthStore();
   const [preview, setPreview] = useState(null);
   const [buscaMedicao, setBuscaMedicao] = useState('');
   const [chartTipo, setChartTipo] = useState('bar'); // 'bar' | 'line' | 'area'
@@ -124,7 +128,40 @@ const Medicoes = () => {
       .catch((e) => alert('Erro: ' + e.message));
   };
 
+  // ─── Ordem de Pagamento (documento do SEI) ─────────────────
+  const relPathOrdem = (m) => {
+    const doc = ordemDocs[String(m.nuMedicao)];
+    return doc?.arquivo ? String(doc.arquivo).replace(/\\/g, '/') : null;
+  };
 
+  const handleOpenOrdem = (m) => {
+    const relPath = relPathOrdem(m);
+    if (!relPath) return;
+    setPreview({ medicao: m, url: '', loading: true, error: null, tipo: 'ordem', ext: 'pdf' });
+    apiService.getDocumentoPubToken(relPath)
+      .then((data) => {
+        if (!data?.token) throw new Error('Sem token');
+        setPreview({ medicao: m, url: API_URL + '/documentos-contrato/pub/' + data.token, loading: false, error: null, tipo: 'ordem', ext: 'pdf' });
+      })
+      .catch((e) => setPreview({ medicao: m, url: '', loading: false, error: e.message, tipo: 'ordem', ext: 'pdf' }));
+  };
+
+  const downloadOrdem = (m) => {
+    const relPath = relPathOrdem(m);
+    if (!relPath) return;
+    apiService.downloadDocumentoContrato(relPath)
+      .then((blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = relPath.split('/').pop();
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      })
+      .catch((e) => alert('Erro: ' + e.message));
+  };
 
   const handleSort = (key) => {
     setSortConfig(prev => {
@@ -215,8 +252,9 @@ const Medicoes = () => {
     Promise.all([
       apiService.getMedicoesArquivos(CONTRATO_ALVO.cd).catch(() => null),
       apiService.getContratoDetails(CONTRATO_ALVO.id).catch(() => null),
+      apiService.getDocumentosContrato().catch(() => null),
     ])
-      .then(([meta, details]) => {
+      .then(([meta, details, docsData]) => {
         if (!active) return;
         const metaList = meta?.medicoes || [];
         const arquivoMap = {};
@@ -257,6 +295,13 @@ const Medicoes = () => {
           };
         });
         setMedicoesList(mapped);
+
+        // Documentos de Ordem de Pagamento (grupo "ordens-pagamento"), por medição
+        const ordemMapAux = {};
+        for (const d of (docsData?.documentos || [])) {
+          if (d.grupo === 'ordens-pagamento' && d.medicao) ordemMapAux[String(d.medicao)] = d;
+        }
+        setOrdemDocs(ordemMapAux);
       })
       .catch(() => { if (active) setMedicoesList([]); })
       .finally(() => { if (active) setMedicoesLoading(false); });
@@ -1023,10 +1068,30 @@ return [
                       </td>
                       <td className="px-4 py-3 text-center">
                         {m.paga ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-200/70 text-[10px] font-semibold text-emerald-700" title={m.dataPagamento ? `Paga em ${m.dataPagamento}` : 'Paga'}>
-                            <BadgeCheck size={11} strokeWidth={2} />
-                            Paga{m.dataPagamento ? ` ${m.dataPagamento}` : ''}
-                          </span>
+                          <div className="inline-flex items-center gap-1 flex-wrap justify-center">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-200/70 text-[10px] font-semibold text-emerald-700" title={m.dataPagamento ? `Paga em ${m.dataPagamento}` : 'Paga'}>
+                              <BadgeCheck size={11} strokeWidth={2} />
+                              Paga{m.dataPagamento ? ` ${m.dataPagamento}` : ''}
+                            </span>
+                            {isAdmin() && relPathOrdem(m) && (
+                              <span className="inline-flex items-center gap-0.5">
+                                <button
+                                  onClick={() => handleOpenOrdem(m)}
+                                  className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-emerald-700 hover:bg-emerald-50 border border-transparent hover:border-emerald-200 transition-all"
+                                  title="Visualizar Ordem de Pagamento"
+                                >
+                                  <Eye size={13} strokeWidth={2} />
+                                </button>
+                                <button
+                                  onClick={() => downloadOrdem(m)}
+                                  className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-slate-500 hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all"
+                                  title="Baixar Ordem de Pagamento"
+                                >
+                                  <Download size={13} strokeWidth={2} />
+                                </button>
+                              </span>
+                            )}
+                          </div>
                         ) : (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200/70 text-[10px] font-semibold text-amber-700" title="Aguardando Ordem de Pagamento (SEI)">
                             <Clock size={11} strokeWidth={2} />
@@ -1129,6 +1194,7 @@ return [
       {/* ─── Prévia da medição (tela cheia) ─────────── */}
       {preview && (() => {
         const isBoletim = preview.tipo === 'boletim' || preview.tipo === 'pdf';
+        const isOrdem = preview.tipo === 'ordem';
         const ext = preview.ext ? ('.' + preview.ext).toLowerCase() : (isBoletim ? '.pdf' : '.xls');
         const isPdf = ext === '.pdf';
         return (
@@ -1139,7 +1205,7 @@ return [
                 ? <FileText size={18} className="text-blue-600 shrink-0" />
                 : <FileSpreadsheet size={18} className="text-emerald-600 shrink-0" />}
               <h2 className="font-bold text-gray-800 truncate text-sm min-w-0">
-                {isBoletim ? 'Boletim — ' : ''}{preview.medicao?.deMedicao || `Medição ${preview.medicao?.nuMedicao || ''}`}
+                {isOrdem ? 'Ordem de Pagamento — ' : isBoletim ? 'Boletim — ' : ''}{preview.medicao?.deMedicao || `Medição ${preview.medicao?.nuMedicao || ''}`}
               </h2>
               <span className="text-xs text-slate-400 uppercase shrink-0">{ext}</span>
             </div>
@@ -1162,7 +1228,7 @@ return [
               <iframe
                 src={preview.url}
                 className="w-full h-full border-0"
-                title={isBoletim ? 'Boletim' : (preview.medicao?.deMedicao || 'Medição')}
+                title={isOrdem ? 'Ordem de Pagamento' : isBoletim ? 'Boletim' : (preview.medicao?.deMedicao || 'Medição')}
               />
             )}
           </div>
