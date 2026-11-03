@@ -71,9 +71,10 @@ const Empresas = () => {
     } catch (e) { /* clipboard indisponível */ }
   };
 
-  // ─── Notas fiscais / planilha de controle do contrato 61/2023 ──
+  // ─── Notas fiscais / planilha de controle / ordens de pagamento do 61/2023 ──
   const [docsNotas, setDocsNotas] = useState([]);
   const [docsControle, setDocsControle] = useState([]);
+  const [docsOrdens, setDocsOrdens] = useState([]);
   const [previewDoc, setPreviewDoc] = useState(null); // { doc, url, loading, error }
 
   useEffect(() => {
@@ -84,9 +85,10 @@ const Empresas = () => {
         const docs = data?.documentos || [];
         setDocsNotas(docs.filter((d) => d.grupo === 'notas-fiscais'));
         setDocsControle(docs.filter((d) => d.grupo === 'controle-pagamento'));
+        setDocsOrdens(docs.filter((d) => d.grupo === 'ordens-pagamento'));
       })
       .catch(() => {
-        if (ativo) { setDocsNotas([]); setDocsControle([]); }
+        if (ativo) { setDocsNotas([]); setDocsControle([]); setDocsOrdens([]); }
       });
     return () => { ativo = false; };
   }, []);
@@ -129,6 +131,15 @@ const Empresas = () => {
     if (!docsControle.length) return null;
     return [...docsControle].sort((a, b) => Number(b.medicao) - Number(a.medicao))[0];
   }, [docsControle]);
+
+  // Mapa medição -> Ordem de Pagamento (documento do SEI)
+  const ordemMap = useMemo(() => {
+    const map = new Map();
+    for (const d of docsOrdens) {
+      if (d.medicao) map.set(String(d.medicao), d);
+    }
+    return map;
+  }, [docsOrdens]);
 
   const getDocRelPath = (d) => (d?.arquivo ? String(d.arquivo).replace(/\\/g, '/') : null);
 
@@ -404,9 +415,34 @@ return {
                               Valor Total: {formatCurrency(g.totalPago)}
                             </span>
                             {g.paga ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-200/70 text-[10px] font-semibold text-emerald-700" title={g.dataPagamento ? `Paga em ${g.dataPagamento}` : 'Paga'}>
-                                <BadgeCheck size={11} strokeWidth={2} />
-                                Paga{g.dataPagamento ? ` em ${g.dataPagamento}` : ''}
+                              <span className="inline-flex items-center gap-1 flex-wrap">
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-200/70 text-[10px] font-semibold text-emerald-700" title={g.dataPagamento ? `Paga em ${g.dataPagamento}` : 'Paga'}>
+                                  <BadgeCheck size={11} strokeWidth={2} />
+                                  Paga{g.dataPagamento ? ` em ${g.dataPagamento}` : ''}
+                                </span>
+                                {isAdmin() && (() => {
+                                  const ordem = ordemMap.get(String(g.nr));
+                                  if (!ordem) return null;
+                                  return (
+                                    <span className="inline-flex items-center gap-1">
+                                      <span className="text-[11px] text-slate-500">Ordem de Pagamento:</span>
+                                      <button
+                                        onClick={() => handleVerDoc(ordem)}
+                                        className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-emerald-700 hover:bg-emerald-50 border border-transparent hover:border-emerald-200 transition-all"
+                                        title="Visualizar Ordem de Pagamento"
+                                      >
+                                        <Eye size={13} strokeWidth={2} />
+                                      </button>
+                                      <button
+                                        onClick={() => handleDownloadDoc(ordem)}
+                                        className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-slate-500 hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all"
+                                        title="Baixar Ordem de Pagamento"
+                                      >
+                                        <Download size={13} strokeWidth={2} />
+                                      </button>
+                                    </span>
+                                  );
+                                })()}
                               </span>
                             ) : (
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200/70 text-[10px] font-semibold text-amber-700" title="Aguardando pagamento (sem Ordem de Pagamento no SEI)">
